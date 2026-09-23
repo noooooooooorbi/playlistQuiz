@@ -32,23 +32,36 @@ if "total" not in st.session_state:
 
 def download_playlist(url):
     ydl_opts = {
-        'format': 'bestaudio/best',
+        'format': 'ba/ba*', # Pobierz dowolny format audio
         'outtmpl': f'{DOWNLOAD_DIR}/%(artist,uploader)s - %(title)s.%(ext)s',
-        'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3'}],
-        'quiet': True
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+        'quiet': True,
+        'no_warnings': True,
+        'nocheckcertificate': True,
+        'ignoreerrors': True, # Ignoruj niedostępne lub zablokowane filmy w playlistach
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     }
+    
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=True)
         files = []
-        for entry in info.get('entries', [info]):
-            filename = ydl.prepare_filename(entry)
-            mp3_filename = os.path.splitext(filename)[0] + ".mp3"
-            if os.path.exists(mp3_filename):
-                title = entry.get('title', 'Unknown')
-                artist = entry.get('artist') or entry.get('uploader', 'Unknown')
-                if " - " in title:
-                    artist, title = title.split(" - ", 1)
-                files.append({"path": mp3_filename, "artist": artist.strip(), "title": title.strip()})
+        if info:
+            entries = info.get('entries', [info])
+            for entry in entries:
+                if not entry:
+                    continue
+                filename = ydl.prepare_filename(entry)
+                mp3_filename = os.path.splitext(filename)[0] + ".mp3"
+                if os.path.exists(mp3_filename):
+                    title = entry.get('title', 'Unknown')
+                    artist = entry.get('artist') or entry.get('uploader', 'Unknown')
+                    if " - " in title:
+                        artist, title = title.split(" - ", 1)
+                    files.append({"path": mp3_filename, "artist": artist.strip(), "title": title.strip()})
         return files
 
 def draw_next_song():
@@ -81,8 +94,11 @@ if st.button("Pobierz playlistę i rozpocznij"):
             st.session_state.songs = download_playlist(playlist_url)
             st.session_state.score = 0
             st.session_state.total = 0
-            draw_next_song()
-            st.success(f"Pobrano {len(st.session_state.songs)} piosenek!")
+            if st.session_state.songs:
+                draw_next_song()
+                st.success(f"Pobrano {len(st.session_state.songs)} piosenek!")
+            else:
+                st.error("Nie udało się pobrać utworów. Upewnij się, że playlista jest publiczna.")
     else:
         st.warning("Podaj link do playlisty.")
 
