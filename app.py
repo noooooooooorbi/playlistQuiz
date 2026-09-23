@@ -86,28 +86,30 @@ def extract_playlist_id(url):
 
 def fetch_deezer_playlist(playlist_id):
     api_url = f"https://api.deezer.com/playlist/{playlist_id}"
-    response = requests.get(api_url)
-    
-    if response.status_code != 200:
+    try:
+        response = requests.get(api_url, timeout=10)
+        if response.status_code != 200:
+            return []
+
+        data = response.json()
+        if "error" in data:
+            return []
+
+        tracks = data.get("tracks", {}).get("data", [])
+        songs = []
+
+        for track in tracks:
+            preview_url = track.get("preview")
+            if preview_url:
+                songs.append({
+                    "title": track.get("title", "Unknown"),
+                    "artist": track.get("artist", {}).get("name", "Unknown"),
+                    "preview_url": preview_url
+                })
+
+        return songs
+    except Exception:
         return []
-
-    data = response.json()
-    if "error" in data:
-        return []
-
-    tracks = data.get("tracks", {}).get("data", [])
-    songs = []
-
-    for track in tracks:
-        preview_url = track.get("preview")
-        if preview_url:
-            songs.append({
-                "title": track.get("title", "Unknown"),
-                "artist": track.get("artist", {}).get("name", "Unknown"),
-                "preview_url": preview_url
-            })
-
-    return songs
 
 def prepare_options(songs, selected_mode):
     options = set()
@@ -122,21 +124,24 @@ def prepare_options(songs, selected_mode):
     return sorted(list(options))
 
 def draw_next_song():
-    if not st.session_state.songs_pool:
-        st.session_state.current_song = None
-        st.session_state.clip_bytes = None
-        return
+    st.session_state.clip_bytes = None
+    st.session_state.current_song = None
     
-    song = random.choice(st.session_state.songs_pool)
-    st.session_state.songs_pool.remove(song)
-    st.session_state.current_song = song
-    st.session_state.answered = False
-    st.session_state.last_correct = False
-    st.session_state.audio_id += 1  # Zwiększamy licznik, by wymusić odświeżenie odtwarzacza
-    
-    res = requests.get(song["preview_url"])
-    if res.status_code == 200:
-        st.session_state.clip_bytes = res.content
+    while st.session_state.songs_pool and not st.session_state.clip_bytes:
+        song = random.choice(st.session_state.songs_pool)
+        st.session_state.songs_pool.remove(song)
+        
+        try:
+            res = requests.get(song["preview_url"], timeout=10)
+            if res.status_code == 200 and res.content:
+                st.session_state.clip_bytes = res.content
+                st.session_state.current_song = song
+                st.session_state.answered = False
+                st.session_state.last_correct = False
+                st.session_state.audio_id += 1
+                break
+        except Exception:
+            continue
 
 # Wczytanie gotowych playlist z pliku JSON
 predefined = load_predefined_playlists()
@@ -177,7 +182,7 @@ if st.button("Pobierz playlistę i rozpocznij grę"):
         st.warning("Wybierz playlistę z listy lub wklej własny link.")
 
 # Panel rozgrywki
-if st.session_state.current_song and st.session_state.clip_bytes:
+if st.session_state.current_song and st.session_state.clip_bytes is not None:
     st.divider()
     
     score_class = "score-success" if st.session_state.last_correct else "score-normal"
@@ -187,7 +192,7 @@ if st.session_state.current_song and st.session_state.clip_bytes:
         </div>
     """, unsafe_allow_html=True)
     
-    # Przekazanie bajtów audio oraz unikalnego klucza (key) dla każdego utworu:
+    # Przekazanie bajtów audio oraz unikalnego klucza
     st.audio(st.session_state.clip_bytes, format="audio/mp3", key=f"player_{st.session_state.audio_id}")
     
     default_option = "Nie mam pojęcia! :-)"
