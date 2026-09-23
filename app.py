@@ -4,6 +4,11 @@ import random
 import requests
 import streamlit as st
 
+DOWNLOAD_DIR = "downloads"
+CLIPS_DIR = "clips"
+os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+os.makedirs(CLIPS_DIR, exist_ok=True)
+
 st.set_page_config(page_title="Deezer Music Quiz", page_icon="🎵")
 
 # CSS: Powiększenie odtwarzacza i stylizacja banera
@@ -49,6 +54,8 @@ if "options_list" not in st.session_state:
     st.session_state.options_list = []
 if "current_song" not in st.session_state:
     st.session_state.current_song = None
+if "clip_bytes" not in st.session_state:
+    st.session_state.clip_bytes = None
 if "score" not in st.session_state:
     st.session_state.score = 0
 if "total" not in st.session_state:
@@ -96,8 +103,7 @@ def fetch_deezer_playlist(playlist_id):
 
         for track in tracks:
             preview_url = track.get("preview")
-            # Dodatkowa weryfikacja: pobieramy TYLKO utwory z poprawnym i niepustym linkiem preview
-            if preview_url and isinstance(preview_url, str) and preview_url.startswith("http"):
+            if preview_url:
                 songs.append({
                     "title": track.get("title", "Unknown"),
                     "artist": track.get("artist", {}).get("name", "Unknown"),
@@ -123,6 +129,7 @@ def prepare_options(songs, selected_mode):
 def draw_next_song():
     if not st.session_state.songs_pool:
         st.session_state.current_song = None
+        st.session_state.clip_bytes = None
         return
     
     song = random.choice(st.session_state.songs_pool)
@@ -131,6 +138,15 @@ def draw_next_song():
     st.session_state.answered = False
     st.session_state.last_correct = False
     st.session_state.audio_id += 1
+    
+    try:
+        res = requests.get(song["preview_url"], timeout=10)
+        if res.status_code == 200:
+            st.session_state.clip_bytes = res.content
+        else:
+            st.session_state.clip_bytes = None
+    except Exception:
+        st.session_state.clip_bytes = None
 
 # Wczytanie gotowych playlist z pliku JSON
 predefined = load_predefined_playlists()
@@ -166,14 +182,12 @@ if st.button("Pobierz playlistę i rozpocznij grę"):
                 st.success(f"Załadowano {len(fetched_songs)} piosenek!")
                 st.rerun()
             else:
-                st.error("Nie udało się pobrać playlisty lub plik nie zawiera utworów z podglądem audio.")
+                st.error("Nie udało się pobrać playlisty. Upewnij się, że ID/link jest poprawny.")
     else:
         st.warning("Wybierz playlistę z listy lub wklej własny link.")
 
 # Panel rozgrywki
-song = st.session_state.current_song
-
-if song:
+if st.session_state.current_song and st.session_state.clip_bytes:
     st.divider()
     
     score_class = "score-success" if st.session_state.last_correct else "score-normal"
@@ -183,9 +197,9 @@ if song:
         </div>
     """, unsafe_allow_html=True)
     
-    # Odtwarzacz audio
     st.audio(
-        song["preview_url"],
+        st.session_state.clip_bytes, 
+        format="audio/mp3", 
         key=f"player_{st.session_state.audio_id}"
     )
     
@@ -202,6 +216,7 @@ if song:
         if st.button("Sprawdź"):
             st.session_state.total += 1
             st.session_state.answered = True
+            song = st.session_state.current_song
             
             if user_choice == default_option:
                 st.session_state.last_correct = False
