@@ -37,7 +37,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🎵 Deezer Music Quiz")
+st.title("🎵 Deezer Music Quiz by Norbbs")
 
 st.sidebar.header("⚙️ Ustawienia Quizu")
 mode = st.sidebar.radio("Co chcesz odgadywać?", ["Tytuł", "Wykonawca", "Wykonawca i Tytuł"])
