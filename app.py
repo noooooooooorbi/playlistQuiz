@@ -6,43 +6,47 @@ import streamlit as st
 
 st.set_page_config(page_title="Deezer Music Quiz by Norbbs", page_icon="🎵")
 
-# CSS: Kompaktowy wygląd dla urządzeń mobilnych
+# CSS: Optymalne dopasowanie do ekranu mobilnego bez obcinania tytułu
 st.markdown("""
     <style>
-    /* Zmniejszenie domyślnych odstępów Streamlita na samej górze */
+    /* Bezpieczny margines górny (odsłania tytuł) i zredukowane boki */
     .block-container {
-        padding-top: 1rem !important;
-        padding-bottom: 1rem !important;
+        padding-top: 2.2rem !important;
+        padding-bottom: 0.5rem !important;
         padding-left: 0.5rem !important;
         padding-right: 0.5rem !important;
     }
     
-    /* Zmniejszenie nagłówków h1 i h2/h3 */
+    /* Rozmiar i poprawka interlinii nagłówka główna */
     h1 {
-        font-size: 1.5rem !important;
+        font-size: 1.35rem !important;
+        line-height: 1.3 !important;
+        padding-top: 0px !important;
         padding-bottom: 0px !important;
         margin-bottom: 0px !important;
     }
+    
+    /* Mniejsze podnagłówki */
     h2, h3, .stSubheader {
-        font-size: 1.1rem !important;
-        padding-top: 0px !important;
-        padding-bottom: 0.2rem !important;
+        font-size: 1.05rem !important;
+        padding-top: 0.2rem !important;
+        padding-bottom: 0.1rem !important;
     }
 
     /* Odtwarzacz audio */
     audio {
         width: 100% !important;
-        height: 45px !important;
+        height: 42px !important;
     }
 
     /* Baner z wynikiem */
     .score-box {
-        padding: 8px !important;
+        padding: 6px 10px !important;
         border-radius: 8px;
         text-align: center;
-        font-size: 16px !important;
+        font-size: 15px !important;
         font-weight: bold;
-        margin-bottom: 10px !important;
+        margin-bottom: 8px !important;
         transition: all 0.5s ease;
     }
     .score-normal {
@@ -57,10 +61,10 @@ st.markdown("""
         box-shadow: 0 0 10px rgba(45, 198, 83, 0.4);
     }
     
-    /* Zmniejszenie marginesów separatorów (st.divider) */
+    /* Odstępy linii rozdzielających */
     hr {
-        margin-top: 0.5rem !important;
-        margin-bottom: 0.5rem !important;
+        margin-top: 0.4rem !important;
+        margin-bottom: 0.4rem !important;
     }
     </style>
 """, unsafe_allow_html=True)
