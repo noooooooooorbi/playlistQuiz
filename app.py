@@ -1,4 +1,5 @@
 import os
+import json
 import random
 import requests
 import streamlit as st
@@ -10,17 +11,14 @@ os.makedirs(CLIPS_DIR, exist_ok=True)
 
 st.set_page_config(page_title="Deezer Music Quiz", page_icon="🎵")
 
-# Własny CSS: Powiększenie odtwarzacza audio oraz stylizacja banera punktacji
+# CSS: Powiększenie odtwarzacza i stylizacja banera
 st.markdown("""
     <style>
-    /* Powiększenie kontrolek odtwarzacza audio */
     audio {
         width: 100% !important;
         height: 70px !important;
         transform: scale(1.02);
     }
-    
-    /* Dynamiczny baner z wynikiem */
     .score-box {
         padding: 15px;
         border-radius: 10px;
@@ -66,6 +64,15 @@ if "answered" not in st.session_state:
     st.session_state.answered = False
 if "last_correct" not in st.session_state:
     st.session_state.last_correct = False
+
+def load_predefined_playlists():
+    if os.path.exists("playlists.json"):
+        try:
+            with open("playlists.json", "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
 
 def extract_playlist_id(url):
     clean_url = url.split("?")[0]
@@ -131,13 +138,30 @@ def draw_next_song():
             f.write(res.content)
         st.session_state.clip_path = clip_path
 
-playlist_input = st.text_input("Wklej link do playlisty Deezer (lub jej ID):", placeholder="https://www.deezer.com/pl/playlist/908622995")
+# Wczytanie gotowych playlist z pliku JSON
+predefined = load_predefined_playlists()
+playlist_id_to_load = None
+
+st.subheader("Wybierz playlistę")
+
+if predefined:
+    options_map = {p["name"]: p["id"] for p in predefined}
+    options_map["-- Wklej własny link / ID --"] = "custom"
+    
+    selected_name = st.selectbox("Wybierz gotową playlistę z listy:", options=list(options_map.keys()))
+    
+    if options_map[selected_name] != "custom":
+        playlist_id_to_load = options_map[selected_name]
+
+if not playlist_id_to_load:
+    custom_input = st.text_input("Wklej link do playlisty Deezer (lub jej ID):", placeholder="https://www.deezer.com/pl/playlist/908622995")
+    if custom_input:
+        playlist_id_to_load = extract_playlist_id(custom_input)
 
 if st.button("Pobierz playlistę i rozpocznij grę"):
-    if playlist_input:
-        playlist_id = extract_playlist_id(playlist_input)
+    if playlist_id_to_load:
         with st.spinner("Pobieranie playlisty z Deezer..."):
-            fetched_songs = fetch_deezer_playlist(playlist_id)
+            fetched_songs = fetch_deezer_playlist(playlist_id_to_load)
             if fetched_songs:
                 st.session_state.songs_pool = fetched_songs.copy()
                 st.session_state.options_list = prepare_options(fetched_songs, mode)
@@ -146,15 +170,14 @@ if st.button("Pobierz playlistę i rozpocznij grę"):
                 draw_next_song()
                 st.success(f"Załadowano {len(fetched_songs)} piosenek!")
             else:
-                st.error("Nie udało się pobrać playlisty. Upewnij się, że link/ID jest poprawny.")
+                st.error("Nie udało się pobrać playlisty. Upewnij się, że ID/link jest poprawny.")
     else:
-        st.warning("Podaj link do playlisty Deezer.")
+        st.warning("Wybierz playlistę z listy lub wklej własny link.")
 
 # Panel rozgrywki
 if st.session_state.current_song and st.session_state.clip_path:
     st.divider()
     
-    # Efekt wizualny zmiana koloru tła w zależności od poprawnej odpowiedzi
     score_class = "score-success" if st.session_state.last_correct else "score-normal"
     st.markdown(f"""
         <div class="score-box {score_class}">
@@ -162,10 +185,8 @@ if st.session_state.current_song and st.session_state.clip_path:
         </div>
     """, unsafe_allow_html=True)
     
-    # Powiększony odtwarzacz audio
     st.audio(st.session_state.clip_path, format="audio/mp3")
     
-    # Opcja domyślna z listą rozwijaną
     default_option = "Nie mam pojęcia! :-)"
     selectable_options = [default_option] + st.session_state.options_list
     
