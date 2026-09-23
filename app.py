@@ -6,29 +6,34 @@ import streamlit as st
 
 st.set_page_config(page_title="Deezer Music Quiz by Norbbs", page_icon="🎵")
 
-# CSS: Optymalne dopasowanie do ekranu mobilnego bez obcinania tytułu
+# CSS: Usuwa ukryty pasek Streamlita i daje bezpieczny margines od góry
 st.markdown("""
     <style>
-    /* Bezpieczny margines górny (odsłania tytuł) i zredukowane boki */
-    .block-container {
-        padding-top: 2.2rem !important;
-        padding-bottom: 0.5rem !important;
-        padding-left: 0.5rem !important;
-        padding-right: 0.5rem !important;
+    /* Ukrywamy górny pasek nawigacyjny Streamlita, który zasłaniał tytuł */
+    header[data-testid="stHeader"] {
+        display: none !important;
     }
     
-    /* Rozmiar i poprawka interlinii nagłówka główna */
+    /* Bezpieczny margines górny i brak niepotrzebnego przewijania */
+    .block-container {
+        padding-top: 2.5rem !important;
+        padding-bottom: 1rem !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+    
+    /* Poprawka tytułu – marginesy i wysokie linie */
     h1 {
-        font-size: 1.35rem !important;
+        font-size: 1.6rem !important;
         line-height: 1.3 !important;
+        margin-top: 0px !important;
         padding-top: 0px !important;
         padding-bottom: 0px !important;
-        margin-bottom: 0px !important;
     }
     
-    /* Mniejsze podnagłówki */
+    /* Podnagłówki */
     h2, h3, .stSubheader {
-        font-size: 1.05rem !important;
+        font-size: 1.1rem !important;
         padding-top: 0.2rem !important;
         padding-bottom: 0.1rem !important;
     }
@@ -36,17 +41,17 @@ st.markdown("""
     /* Odtwarzacz audio */
     audio {
         width: 100% !important;
-        height: 42px !important;
+        height: 45px !important;
     }
 
     /* Baner z wynikiem */
     .score-box {
-        padding: 6px 10px !important;
+        padding: 8px 12px !important;
         border-radius: 8px;
         text-align: center;
-        font-size: 15px !important;
+        font-size: 16px !important;
         font-weight: bold;
-        margin-bottom: 8px !important;
+        margin-bottom: 10px !important;
         transition: all 0.5s ease;
     }
     .score-normal {
@@ -61,10 +66,10 @@ st.markdown("""
         box-shadow: 0 0 10px rgba(45, 198, 83, 0.4);
     }
     
-    /* Odstępy linii rozdzielających */
+    /* Linedivider */
     hr {
-        margin-top: 0.4rem !important;
-        margin-bottom: 0.4rem !important;
+        margin-top: 0.5rem !important;
+        margin-bottom: 0.5rem !important;
     }
     </style>
 """, unsafe_allow_html=True)
