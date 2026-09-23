@@ -1,13 +1,17 @@
 import os
 import json
 import random
-import io
 import requests
 import streamlit as st
 
 st.set_page_config(page_title="Deezer Music Quiz", page_icon="🎵")
 
-# CSS: Powiększenie odtwarzacza i stylizacja banera
+# Katalog na pliki tymczasowe
+TEMP_DIR = "temp_audio"
+os.makedirs(TEMP_DIR, exist_ok=True)
+TEMP_FILE_PATH = os.path.join(TEMP_DIR, "current_song.mp3")
+
+# CSS: Stylizacja odtwarzacza i banera wyniku
 st.markdown("""
     <style>
     audio {
@@ -50,8 +54,8 @@ if "options_list" not in st.session_state:
     st.session_state.options_list = []
 if "current_song" not in st.session_state:
     st.session_state.current_song = None
-if "clip_bytes" not in st.session_state:
-    st.session_state.clip_bytes = None
+if "has_audio_file" not in st.session_state:
+    st.session_state.has_audio_file = False
 if "score" not in st.session_state:
     st.session_state.score = 0
 if "total" not in st.session_state:
@@ -99,7 +103,6 @@ def fetch_deezer_playlist(playlist_id):
 
         for track in tracks:
             preview_url = track.get("preview")
-            # Dodatkowe zabezpieczenie: do playlisty wchodzą tylko utwory posiadające ważny link
             if preview_url and isinstance(preview_url, str) and preview_url.startswith("http"):
                 songs.append({
                     "title": track.get("title", "Unknown"),
@@ -124,27 +127,28 @@ def prepare_options(songs, selected_mode):
     return sorted(list(options))
 
 def draw_next_song():
-    if not st.session_state.songs_pool:
-        st.session_state.current_song = None
-        st.session_state.clip_bytes = None
-        return
+    st.session_state.current_song = None
+    st.session_state.has_audio_file = False
     
-    song = random.choice(st.session_state.songs_pool)
-    st.session_state.songs_pool.remove(song)
-    st.session_state.current_song = song
-    st.session_state.answered = False
-    st.session_state.last_correct = False
-    st.session_state.audio_id += 1
-    
-    # Pobieranie pliku mp3 do bufora pamięci io.BytesIO
-    try:
-        res = requests.get(song["preview_url"], timeout=10)
-        if res.status_code == 200 and len(res.content) > 0:
-            st.session_state.clip_bytes = io.BytesIO(res.content)
-        else:
-            st.session_state.clip_bytes = None
-    except Exception:
-        st.session_state.clip_bytes = None
+    # Próbujemy wylosować piosenkę, która pomyślnie zapisze się na dysku
+    while st.session_state.songs_pool:
+        song = random.choice(st.session_state.songs_pool)
+        st.session_state.songs_pool.remove(song)
+        
+        try:
+            res = requests.get(song["preview_url"], timeout=10)
+            if res.status_code == 200 and len(res.content) > 0:
+                with open(TEMP_FILE_PATH, "wb") as f:
+                    f.write(res.content)
+                
+                st.session_state.current_song = song
+                st.session_state.has_audio_file = True
+                st.session_state.answered = False
+                st.session_state.last_correct = False
+                st.session_state.audio_id += 1
+                break
+        except Exception:
+            continue
 
 # Wczytanie gotowych playlist z pliku JSON
 predefined = load_predefined_playlists()
@@ -185,7 +189,7 @@ if st.button("Pobierz playlistę i rozpocznij grę"):
         st.warning("Wybierz playlistę z listy lub wklej własny link.")
 
 # Panel rozgrywki
-if st.session_state.current_song and st.session_state.clip_bytes:
+if st.session_state.current_song and st.session_state.has_audio_file:
     song = st.session_state.current_song
     st.divider()
     
@@ -196,9 +200,9 @@ if st.session_state.current_song and st.session_state.clip_bytes:
         </div>
     """, unsafe_allow_html=True)
     
-    # Odtwarzanie bezpiecznego obiektu BytesIO
+    # Odtwarzanie ze sprawdzonego pliku lokalnego
     st.audio(
-        st.session_state.clip_bytes, 
+        TEMP_FILE_PATH, 
         format="audio/mp3", 
         key=f"player_{st.session_state.audio_id}"
     )
