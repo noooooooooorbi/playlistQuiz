@@ -4,7 +4,7 @@ import random
 import requests
 import streamlit as st
 
-st.set_page_config(page_title="Deezer Music Quiz", page_icon="🎵")
+st.set_page_config(page_title="Deezer Music Quiz by Norbbs", page_icon="🎵")
 
 # CSS: Powiększenie odtwarzacza i stylizacja banera
 st.markdown("""
