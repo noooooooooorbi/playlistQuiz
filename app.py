@@ -40,7 +40,7 @@ st.markdown("""
 st.title("🎵 Deezer Music Quiz by Norbbs")
 
 st.sidebar.header("⚙️ Ustawienia Quizu")
-mode = st.sidebar.radio("Co chcesz odgadywać?", ["Tytuł", "Wykonawca", "Wykonawca i Tytuł"])
+mode = st.sidebar.radio("Co chcesz odgadywać?", ["Tytuł", "Wykonawca", "Wykonawca i Tytuł"], index=1)
 
 # Inicjalizacja stanu aplikacji
 if "songs_pool" not in st.session_state:
