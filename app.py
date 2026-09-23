@@ -103,25 +103,27 @@ if st.session_state.current_song and st.session_state.clip_path:
         user_answer = st.text_input("Twoja odpowiedź:")
         submit = st.form_submit_button("Sprawdź")
         
-        if submit:
-            st.session_state.total += 1
-            song = st.session_state.current_song
-            correct = False
+if submit:
+            clean_answer = user_answer.strip()
             
-            if mode == "Tytuł" and user_answer.lower() in song["title"].lower():
-                correct = True
-            elif mode == "Wykonawca" and user_answer.lower() in song["artist"].lower():
-                correct = True
-            elif mode == "Wykonawca i Tytuł":
-                if user_answer.lower() in f'{song["artist"]} {song["title"]}'.lower():
-                    correct = True
-
-            if correct:
-                st.success("🎯 Poprawna odpowiedź!")
-                st.session_state.score += 1
+            # Jeśli użytkownik nic nie wpisał
+            if not clean_answer:
+                st.warning("⚠️ Wpisz odpowiedź przed kliknięciem 'Sprawdź'!")
             else:
-                st.error(f"❌ Błąd! Poprawna odpowiedź: {song['artist']} - {song['title']}")
-    
-    if st.button("Następne pytanie ➡️"):
-        draw_next_song()
-        st.rerun()
+                st.session_state.total += 1
+                song = st.session_state.current_song
+                correct = False
+                
+                if mode == "Tytuł" and clean_answer.lower() in song["title"].lower():
+                    correct = True
+                elif mode == "Wykonawca" and clean_answer.lower() in song["artist"].lower():
+                    correct = True
+                elif mode == "Wykonawca i Tytuł":
+                    if clean_answer.lower() in f'{song["artist"]} {song["title"]}'.lower():
+                        correct = True
+
+                if correct:
+                    st.success("🎯 Poprawna odpowiedź!")
+                    st.session_state.score += 1
+                else:
+                    st.error(f"❌ Błąd! Poprawna odpowiedź: {song['artist']} - {song['title']}")
