@@ -71,9 +71,7 @@ def load_predefined_playlists():
     if os.path.exists("playlists.json"):
         try:
             with open("playlists.json", "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if isinstance(data, list):
-                    return data
+                return json.load(f)
         except Exception:
             return []
     return []
@@ -88,30 +86,28 @@ def extract_playlist_id(url):
 
 def fetch_deezer_playlist(playlist_id):
     api_url = f"https://api.deezer.com/playlist/{playlist_id}"
-    try:
-        response = requests.get(api_url, timeout=10)
-        if response.status_code != 200:
-            return []
-
-        data = response.json()
-        if "error" in data:
-            return []
-
-        tracks = data.get("tracks", {}).get("data", [])
-        songs = []
-
-        for track in tracks:
-            preview_url = track.get("preview")
-            if preview_url:
-                songs.append({
-                    "title": track.get("title", "Unknown"),
-                    "artist": track.get("artist", {}).get("name", "Unknown"),
-                    "preview_url": preview_url
-                })
-
-        return songs
-    except Exception:
+    response = requests.get(api_url)
+    
+    if response.status_code != 200:
         return []
+
+    data = response.json()
+    if "error" in data:
+        return []
+
+    tracks = data.get("tracks", {}).get("data", [])
+    songs = []
+
+    for track in tracks:
+        preview_url = track.get("preview")
+        if preview_url:
+            songs.append({
+                "title": track.get("title", "Unknown"),
+                "artist": track.get("artist", {}).get("name", "Unknown"),
+                "preview_url": preview_url
+            })
+
+    return songs
 
 def prepare_options(songs, selected_mode):
     options = set()
@@ -136,16 +132,11 @@ def draw_next_song():
     st.session_state.current_song = song
     st.session_state.answered = False
     st.session_state.last_correct = False
-    st.session_state.audio_id += 1
+    st.session_state.audio_id += 1  # Zwiększamy licznik, by wymusić odświeżenie odtwarzacza
     
-    try:
-        res = requests.get(song["preview_url"], timeout=10)
-        if res.status_code == 200:
-            st.session_state.clip_bytes = res.content
-        else:
-            st.session_state.clip_bytes = None
-    except Exception:
-        st.session_state.clip_bytes = None
+    res = requests.get(song["preview_url"])
+    if res.status_code == 200:
+        st.session_state.clip_bytes = res.content
 
 # Wczytanie gotowych playlist z pliku JSON
 predefined = load_predefined_playlists()
@@ -154,7 +145,7 @@ playlist_id_to_load = None
 st.subheader("Wybierz playlistę")
 
 if predefined:
-    options_map = {p["name"]: p["id"] for p in predefined if "name" in p and "id" in p}
+    options_map = {p["name"]: p["id"] for p in predefined}
     options_map["-- Wklej własny link / ID --"] = "custom"
     
     selected_name = st.selectbox("Wybierz gotową playlistę z listy:", options=list(options_map.keys()))
@@ -196,8 +187,8 @@ if st.session_state.current_song and st.session_state.clip_bytes:
         </div>
     """, unsafe_allow_html=True)
     
-    # Wywołanie bez parametru format="audio/mp3"
-    st.audio(st.session_state.clip_bytes, key=f"player_{st.session_state.audio_id}")
+    # Przekazanie bajtów audio oraz unikalnego klucza (key) dla każdego utworu:
+    st.audio(st.session_state.clip_bytes, format="audio/mp3", key=f"player_{st.session_state.audio_id}")
     
     default_option = "Nie mam pojęcia! :-)"
     selectable_options = [default_option] + st.session_state.options_list
