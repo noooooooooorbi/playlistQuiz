@@ -188,7 +188,10 @@ if st.session_state.current_song and st.session_state.clip_bytes:
     """, unsafe_allow_html=True)
     
     # Przekazanie bajtów audio oraz unikalnego klucza (key) dla każdego utworu:
-    st.audio(st.session_state.clip_bytes, format="audio/mp3", key=f"player_{st.session_state.audio_id}")
+    st.audio(
+    st.session_state.current_song["preview_url"], 
+    key=f"player_{st.session_state.audio_id}"
+)
     
     default_option = "Nie mam pojęcia! :-)"
     selectable_options = [default_option] + st.session_state.options_list
