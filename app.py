@@ -27,7 +27,6 @@ if "total" not in st.session_state:
     st.session_state.total = 0
 
 def extract_playlist_id(url):
-    # Wyciąga ID playlisty z linku Deezer (np. deezer.com/pl/playlist/12345678)
     clean_url = url.split("?")[0]
     parts = clean_url.strip("/").split("/")
     for part in reversed(parts):
@@ -50,7 +49,7 @@ def fetch_deezer_playlist(playlist_id):
     songs = []
 
     for track in tracks:
-        preview_url = track.get("preview")  # 30-sekundowa próbka MP3
+        preview_url = track.get("preview")
         if preview_url:
             songs.append({
                 "title": track.get("title", "Unknown"),
@@ -67,7 +66,6 @@ def draw_next_song():
     song = random.choice(st.session_state.songs)
     st.session_state.current_song = song
     
-    # Pobieramy 30-sekundową próbkę MP3 bezpośrednio z serwera Deezera
     res = requests.get(song["preview_url"])
     if res.status_code == 200:
         clip_path = os.path.join(CLIPS_DIR, "temp_clip.mp3")
@@ -96,17 +94,14 @@ if st.session_state.current_song and st.session_state.clip_path:
     st.divider()
     st.subheader(f"Wynik: {st.session_state.score} / {st.session_state.total}")
     
-    # Odtwarzacz audio Streamlit
     st.audio(st.session_state.clip_path, format="audio/mp3")
     
     with st.form(key="answer_form"):
         user_answer = st.text_input("Twoja odpowiedź:")
         submit = st.form_submit_button("Sprawdź")
         
-if submit:
+        if submit:
             clean_answer = user_answer.strip()
-            
-            # Jeśli użytkownik nic nie wpisał
             if not clean_answer:
                 st.warning("⚠️ Wpisz odpowiedź przed kliknięciem 'Sprawdź'!")
             else:
@@ -127,3 +122,7 @@ if submit:
                     st.session_state.score += 1
                 else:
                     st.error(f"❌ Błąd! Poprawna odpowiedź: {song['artist']} - {song['title']}")
+    
+    if st.button("Następne pytanie ➡️"):
+        draw_next_song()
+        st.rerun()
