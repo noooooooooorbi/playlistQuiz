@@ -2,15 +2,14 @@ import os
 import random
 import requests
 import streamlit as st
-from pydub import AudioSegment
 
 DOWNLOAD_DIR = "downloads"
 CLIPS_DIR = "clips"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 os.makedirs(CLIPS_DIR, exist_ok=True)
 
-st.set_page_config(page_title="YouTube Music Quiz", page_icon="🎵")
-st.title("🎵 YouTube Music Quiz")
+st.set_page_config(page_title="Deezer Music Quiz", page_icon="🎵")
+st.title("🎵 Deezer Music Quiz")
 
 st.sidebar.header("⚙️ Ustawienia Quizu")
 mode = st.sidebar.radio("Co chcesz odgadywać?", ["Tytuł", "Wykonawca", "Wykonawca i Tytuł"])
@@ -28,91 +27,76 @@ if "total" not in st.session_state:
     st.session_state.total = 0
 
 def extract_playlist_id(url):
-    if "list=" in url:
-        return url.split("list=")[1].split("&")[0]
+    # Wyciąga ID playlisty z linku Deezer (np. deezer.com/pl/playlist/12345678)
+    clean_url = url.split("?")[0]
+    parts = clean_url.strip("/").split("/")
+    for part in reversed(parts):
+        if part.isdigit():
+            return part
     return url
 
-def download_playlist_invidious(playlist_id):
-    # Publiczne instancje Invidious
-    instances = [
-        "https://invidious.nerdvpn.de",
-        "https://inv.tux.pizza",
-        "https://invidious.drgns.space"
-    ]
+def fetch_deezer_playlist(playlist_id):
+    api_url = f"https://api.deezer.com/playlist/{playlist_id}"
+    response = requests.get(api_url)
     
+    if response.status_code != 200:
+        return []
+
+    data = response.json()
+    if "error" in data:
+        return []
+
+    tracks = data.get("tracks", {}).get("data", [])
     songs = []
-    for instance in instances:
-        try:
-            api_url = f"{instance}/api/v1/playlists/{playlist_id}"
-            res = requests.get(api_url, timeout=10)
-            if res.status_code == 200:
-                data = res.json()
-                videos = data.get("videos", [])
-                
-                for vid in videos[:15]: # Limituemy do 15 piosenek dla szybszego ładowania
-                    v_id = vid["videoId"]
-                    title = vid["title"]
-                    author = vid.get("author", "Unknown")
-                    
-                    # Pobieranie strumienia audio
-                    audio_url = f"{instance}/latest_version?id={v_id}&itag=140"
-                    audio_res = requests.get(audio_url, timeout=15)
-                    
-                    if audio_res.status_code == 200:
-                        file_path = os.path.join(DOWNLOAD_DIR, f"{v_id}.m4a")
-                        with open(file_path, "wb") as f:
-                            f.write(audio_res.content)
-                            
-                        if " - " in title:
-                            author, title = title.split(" - ", 1)
-                            
-                        songs.append({
-                            "path": file_path,
-                            "artist": author.strip(),
-                            "title": title.strip()
-                        })
-                if songs:
-                    break
-        except Exception:
-            continue
-            
+
+    for track in tracks:
+        preview_url = track.get("preview")  # 30-sekundowa próbka MP3
+        if preview_url:
+            songs.append({
+                "title": track.get("title", "Unknown"),
+                "artist": track.get("artist", {}).get("name", "Unknown"),
+                "preview_url": preview_url
+            })
+
     return songs
 
 def draw_next_song():
     if not st.session_state.songs:
         return
+    
     song = random.choice(st.session_state.songs)
     st.session_state.current_song = song
     
-    audio = AudioSegment.from_file(song["path"])
-    song_len_sec = int(len(audio) / 1000)
-    
-    start_sec = random.randint(0, max(0, song_len_sec - clip_duration))
-    clip = audio[start_sec * 1000 : (start_sec + clip_duration) * 1000]
-    
-    clip_path = os.path.join(CLIPS_DIR, "temp_clip.mp3")
-    clip.export(clip_path, format="mp3")
-    st.session_state.clip_path = clip_path
+    # Pobieramy 30-sekundową próbkę MP3 bezpośrednio z serwera Deezera
+    res = requests.get(song["preview_url"])
+    if res.status_code == 200:
+        clip_path = os.path.join(CLIPS_DIR, "temp_clip.mp3")
+        with open(clip_path, "wb") as f:
+            f.write(res.content)
+        st.session_state.clip_path = clip_path
 
-playlist_url = st.text_input("Wklej link do playlisty YouTube:")
+playlist_input = st.text_input("Wklej link do playlisty Deezer (lub jej ID):", placeholder="https://www.deezer.com/pl/playlist/908622995")
+
 if st.button("Pobierz playlistę i rozpocznij"):
-    if playlist_url:
-        p_id = extract_playlist_id(playlist_url)
-        with st.spinner("Pobieranie playlisty przez proxy... To zajmie około minuty."):
-            st.session_state.songs = download_playlist_invidious(p_id)
+    if playlist_input:
+        playlist_id = extract_playlist_id(playlist_input)
+        with st.spinner("Pobieranie playlisty z Deezer..."):
+            st.session_state.songs = fetch_deezer_playlist(playlist_id)
             st.session_state.score = 0
             st.session_state.total = 0
             if st.session_state.songs:
                 draw_next_song()
                 st.success(f"Pobrano {len(st.session_state.songs)} piosenek!")
             else:
-                st.error("Nie udało się pobrać utwórów. Spróbuj ponownie za chwilę.")
+                st.error("Nie udało się pobrać playlisty. Upewnij się, że link/ID jest poprawny i playlista jest publiczna.")
     else:
-        st.warning("Podaj link do playlisty.")
+        st.warning("Podaj link do playlisty Deezer.")
 
 if st.session_state.current_song and st.session_state.clip_path:
     st.divider()
     st.subheader(f"Wynik: {st.session_state.score} / {st.session_state.total}")
+    
+    # Odtwarzacz audio Streamlit
     st.audio(st.session_state.clip_path, format="audio/mp3")
     
     with st.form(key="answer_form"):
@@ -134,7 +118,7 @@ if st.session_state.current_song and st.session_state.clip_path:
 
             if correct:
                 st.success("🎯 Poprawna odpowiedź!")
-                st.score += 1
+                st.session_state.score += 1
             else:
                 st.error(f"❌ Błąd! Poprawna odpowiedź: {song['artist']} - {song['title']}")
     
