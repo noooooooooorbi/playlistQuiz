@@ -6,12 +6,7 @@ import streamlit as st
 
 st.set_page_config(page_title="Deezer Music Quiz", page_icon="🎵")
 
-# Katalog na pliki tymczasowe
-TEMP_DIR = "temp_audio"
-os.makedirs(TEMP_DIR, exist_ok=True)
-TEMP_FILE_PATH = os.path.join(TEMP_DIR, "current_song.mp3")
-
-# CSS: Stylizacja odtwarzacza i banera wyniku
+# CSS: Powiększenie odtwarzacza i stylizacja banera
 st.markdown("""
     <style>
     audio {
@@ -54,8 +49,6 @@ if "options_list" not in st.session_state:
     st.session_state.options_list = []
 if "current_song" not in st.session_state:
     st.session_state.current_song = None
-if "has_audio_file" not in st.session_state:
-    st.session_state.has_audio_file = False
 if "score" not in st.session_state:
     st.session_state.score = 0
 if "total" not in st.session_state:
@@ -127,27 +120,16 @@ def prepare_options(songs, selected_mode):
     return sorted(list(options))
 
 def draw_next_song():
-    st.session_state.current_song = None
-    st.session_state.has_audio_file = False
+    if not st.session_state.songs_pool:
+        st.session_state.current_song = None
+        return
     
-    while st.session_state.songs_pool:
-        song = random.choice(st.session_state.songs_pool)
-        st.session_state.songs_pool.remove(song)
-        
-        try:
-            res = requests.get(song["preview_url"], timeout=10)
-            if res.status_code == 200 and len(res.content) > 0:
-                with open(TEMP_FILE_PATH, "wb") as f:
-                    f.write(res.content)
-                
-                st.session_state.current_song = song
-                st.session_state.has_audio_file = True
-                st.session_state.answered = False
-                st.session_state.last_correct = False
-                st.session_state.audio_id += 1
-                break
-        except Exception:
-            continue
+    song = random.choice(st.session_state.songs_pool)
+    st.session_state.songs_pool.remove(song)
+    st.session_state.current_song = song
+    st.session_state.answered = False
+    st.session_state.last_correct = False
+    st.session_state.audio_id += 1
 
 # Wczytanie gotowych playlist z pliku JSON
 predefined = load_predefined_playlists()
@@ -188,7 +170,7 @@ if st.button("Pobierz playlistę i rozpocznij grę"):
         st.warning("Wybierz playlistę z listy lub wklej własny link.")
 
 # Panel rozgrywki
-if st.session_state.current_song and st.session_state.has_audio_file and os.path.exists(TEMP_FILE_PATH):
+if st.session_state.current_song:
     song = st.session_state.current_song
     st.divider()
     
@@ -199,13 +181,8 @@ if st.session_state.current_song and st.session_state.has_audio_file and os.path
         </div>
     """, unsafe_allow_html=True)
     
-    # Otwieramy plik w trybie odczytu binarnego ("rb") – to eliminuje błąd TypeError
-    with open(TEMP_FILE_PATH, "rb") as audio_file:
-        st.audio(
-            audio_file.read(),
-            format="audio/mp3",
-            key=f"player_{st.session_state.audio_id}"
-        )
+    # Tylko dwa podstawowe parametry bez 'format', co zapobiega TypeError
+    st.audio(song["preview_url"])
     
     default_option = "Nie mam pojęcia! :-)"
     selectable_options = [default_option] + st.session_state.options_list
