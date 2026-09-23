@@ -13,10 +13,12 @@ st.title("🎵 Deezer Music Quiz")
 
 st.sidebar.header("⚙️ Ustawienia Quizu")
 mode = st.sidebar.radio("Co chcesz odgadywać?", ["Tytuł", "Wykonawca", "Wykonawca i Tytuł"])
-clip_duration = st.sidebar.slider("Długość fragmentu (sekundy):", min_value=3, max_value=30, value=10)
 
-if "songs" not in st.session_state:
-    st.session_state.songs = []
+# Stan aplikacji
+if "songs_pool" not in st.session_state:
+    st.session_state.songs_pool = []
+if "options_list" not in st.session_state:
+    st.session_state.options_list = []
 if "current_song" not in st.session_state:
     st.session_state.current_song = None
 if "clip_path" not in st.session_state:
@@ -25,6 +27,8 @@ if "score" not in st.session_state:
     st.session_state.score = 0
 if "total" not in st.session_state:
     st.session_state.total = 0
+if "answered" not in st.session_state:
+    st.session_state.answered = False
 
 def extract_playlist_id(url):
     clean_url = url.split("?")[0]
@@ -59,12 +63,30 @@ def fetch_deezer_playlist(playlist_id):
 
     return songs
 
+def prepare_options(songs, selected_mode):
+    # Generuje listę wyboru na podstawie trybu gry
+    options = set()
+    for s in songs:
+        if selected_mode == "Tytuł":
+            options.add(s["title"])
+        elif selected_mode == "Wykonawca":
+            options.add(s["artist"])
+        elif selected_mode == "Wykonawca i Tytuł":
+            options.add(f'{s["artist"]} - {s["title"]}')
+    
+    return sorted(list(options))
+
 def draw_next_song():
-    if not st.session_state.songs:
+    if not st.session_state.songs_pool:
+        st.session_state.current_song = None
+        st.session_state.clip_path = None
         return
     
-    song = random.choice(st.session_state.songs)
+    # Losujemy utwor i usuwamy go z puli (brak powtórek)
+    song = random.choice(st.session_state.songs_pool)
+    st.session_state.songs_pool.remove(song)
     st.session_state.current_song = song
+    st.session_state.answered = False
     
     res = requests.get(song["preview_url"])
     if res.status_code == 200:
@@ -75,54 +97,65 @@ def draw_next_song():
 
 playlist_input = st.text_input("Wklej link do playlisty Deezer (lub jej ID):", placeholder="https://www.deezer.com/pl/playlist/908622995")
 
-if st.button("Pobierz playlistę i rozpocznij"):
+if st.button("Pobierz playlistę i rozpoczęcie gry"):
     if playlist_input:
         playlist_id = extract_playlist_id(playlist_input)
         with st.spinner("Pobieranie playlisty z Deezer..."):
-            st.session_state.songs = fetch_deezer_playlist(playlist_id)
-            st.session_state.score = 0
-            st.session_state.total = 0
-            if st.session_state.songs:
+            fetched_songs = fetch_deezer_playlist(playlist_id)
+            if fetched_songs:
+                st.session_state.songs_pool = fetched_songs.copy()
+                st.session_state.options_list = prepare_options(fetched_songs, mode)
+                st.session_state.score = 0
+                st.session_state.total = 0
                 draw_next_song()
-                st.success(f"Pobrano {len(st.session_state.songs)} piosenek!")
+                st.success(f"Załadowano {len(fetched_songs)} piosenek!")
             else:
-                st.error("Nie udało się pobrać playlisty. Upewnij się, że link/ID jest poprawny i playlista jest publiczna.")
+                st.error("Nie udało się pobrać playlisty. Upewnij się, że link/ID jest poprawny.")
     else:
         st.warning("Podaj link do playlisty Deezer.")
 
+# Panel rozgrywki
 if st.session_state.current_song and st.session_state.clip_path:
     st.divider()
-    st.subheader(f"Wynik: {st.session_state.score} / {st.session_state.total}")
+    st.subheader(f"Wynik: {st.session_state.score} / {st.session_state.total} | Pozostało piosenek: {len(st.session_state.songs_pool) + 1}")
     
     st.audio(st.session_state.clip_path, format="audio/mp3")
     
-    with st.form(key="answer_form"):
-        user_answer = st.text_input("Twoja odpowiedź:")
-        submit = st.form_submit_button("Sprawdź")
-        
-        if submit:
-            clean_answer = user_answer.strip()
-            if not clean_answer:
-                st.warning("⚠️ Wpisz odpowiedź przed kliknięciem 'Sprawdź'!")
+    # Rozwijana lista odpowiedzi
+    selectable_options = ["-- Wybierz odpowiedź --"] + st.session_state.options_list
+    user_choice = st.selectbox("Wybierz poprawną odpowiedź z listy:", options=selectable_options, key=f"q_{st.session_state.total}")
+
+    if not st.session_state.answered:
+        if st.button("Sprawdź"):
+            if user_choice == "-- Wybierz odpowiedź --":
+                st.warning("⚠️ Wybierz odpowiedź z listy przed sprawdzeniem!")
             else:
                 st.session_state.total += 1
+                st.session_state.answered = True
                 song = st.session_state.current_song
                 correct = False
                 
-                if mode == "Tytuł" and clean_answer.lower() in song["title"].lower():
+                # Ustalenie poprawnej odpowiedzi
+                if mode == "Tytuł" and user_choice == song["title"]:
                     correct = True
-                elif mode == "Wykonawca" and clean_answer.lower() in song["artist"].lower():
+                elif mode == "Wykonawca" and user_choice == song["artist"]:
                     correct = True
-                elif mode == "Wykonawca i Tytuł":
-                    if clean_answer.lower() in f'{song["artist"]} {song["title"]}'.lower():
-                        correct = True
+                elif mode == "Wykonawca i Tytuł" and user_choice == f'{song["artist"]} - {song["title"]}':
+                    correct = True
 
                 if correct:
                     st.success("🎯 Poprawna odpowiedź!")
                     st.session_state.score += 1
                 else:
-                    st.error(f"❌ Błąd! Poprawna odpowiedź: {song['artist']} - {song['title']}")
-    
-    if st.button("Następne pytanie ➡️"):
-        draw_next_song()
-        st.rerun()
+                    st.error(f"❌ Błąd! Poprawna odpowiedź to: {song['artist']} - {song['title']}")
+
+    if st.session_state.answered:
+        if st.button("Następne pytanie ➡️"):
+            draw_next_song()
+            st.rerun()
+
+elif st.session_state.total > 0 and not st.session_state.songs_pool:
+    st.divider()
+    st.balloons()
+    st.header("🎉 Koniec Quizu!")
+    st.subheader(f"Twój ostateczny wynik to: {st.session_state.score} / {st.session_state.total}")
