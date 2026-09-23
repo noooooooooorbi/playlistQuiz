@@ -4,11 +4,6 @@ import random
 import requests
 import streamlit as st
 
-DOWNLOAD_DIR = "downloads"
-CLIPS_DIR = "clips"
-os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-os.makedirs(CLIPS_DIR, exist_ok=True)
-
 st.set_page_config(page_title="Deezer Music Quiz", page_icon="🎵")
 
 # CSS: Powiększenie odtwarzacza i stylizacja banera
@@ -54,8 +49,6 @@ if "options_list" not in st.session_state:
     st.session_state.options_list = []
 if "current_song" not in st.session_state:
     st.session_state.current_song = None
-if "clip_bytes" not in st.session_state:
-    st.session_state.clip_bytes = None
 if "score" not in st.session_state:
     st.session_state.score = 0
 if "total" not in st.session_state:
@@ -71,7 +64,9 @@ def load_predefined_playlists():
     if os.path.exists("playlists.json"):
         try:
             with open("playlists.json", "r", encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
+                if isinstance(data, list):
+                    return data
         except Exception:
             return []
     return []
@@ -86,28 +81,30 @@ def extract_playlist_id(url):
 
 def fetch_deezer_playlist(playlist_id):
     api_url = f"https://api.deezer.com/playlist/{playlist_id}"
-    response = requests.get(api_url)
-    
-    if response.status_code != 200:
+    try:
+        response = requests.get(api_url, timeout=10)
+        if response.status_code != 200:
+            return []
+
+        data = response.json()
+        if "error" in data:
+            return []
+
+        tracks = data.get("tracks", {}).get("data", [])
+        songs = []
+
+        for track in tracks:
+            preview_url = track.get("preview")
+            if preview_url:
+                songs.append({
+                    "title": track.get("title", "Unknown"),
+                    "artist": track.get("artist", {}).get("name", "Unknown"),
+                    "preview_url": preview_url
+                })
+
+        return songs
+    except Exception:
         return []
-
-    data = response.json()
-    if "error" in data:
-        return []
-
-    tracks = data.get("tracks", {}).get("data", [])
-    songs = []
-
-    for track in tracks:
-        preview_url = track.get("preview")
-        if preview_url:
-            songs.append({
-                "title": track.get("title", "Unknown"),
-                "artist": track.get("artist", {}).get("name", "Unknown"),
-                "preview_url": preview_url
-            })
-
-    return songs
 
 def prepare_options(songs, selected_mode):
     options = set()
@@ -124,7 +121,6 @@ def prepare_options(songs, selected_mode):
 def draw_next_song():
     if not st.session_state.songs_pool:
         st.session_state.current_song = None
-        st.session_state.clip_bytes = None
         return
     
     song = random.choice(st.session_state.songs_pool)
@@ -132,11 +128,7 @@ def draw_next_song():
     st.session_state.current_song = song
     st.session_state.answered = False
     st.session_state.last_correct = False
-    st.session_state.audio_id += 1  # Zwiększamy licznik, by wymusić odświeżenie odtwarzacza
-    
-    res = requests.get(song["preview_url"])
-    if res.status_code == 200:
-        st.session_state.clip_bytes = res.content
+    st.session_state.audio_id += 1
 
 # Wczytanie gotowych playlist z pliku JSON
 predefined = load_predefined_playlists()
@@ -145,7 +137,7 @@ playlist_id_to_load = None
 st.subheader("Wybierz playlistę")
 
 if predefined:
-    options_map = {p["name"]: p["id"] for p in predefined}
+    options_map = {p["name"]: p["id"] for p in predefined if "name" in p and "id" in p}
     options_map["-- Wklej własny link / ID --"] = "custom"
     
     selected_name = st.selectbox("Wybierz gotową playlistę z listy:", options=list(options_map.keys()))
@@ -177,7 +169,7 @@ if st.button("Pobierz playlistę i rozpocznij grę"):
         st.warning("Wybierz playlistę z listy lub wklej własny link.")
 
 # Panel rozgrywki
-if st.session_state.current_song and st.session_state.clip_bytes:
+if st.session_state.current_song and "preview_url" in st.session_state.current_song:
     st.divider()
     
     score_class = "score-success" if st.session_state.last_correct else "score-normal"
@@ -187,11 +179,11 @@ if st.session_state.current_song and st.session_state.clip_bytes:
         </div>
     """, unsafe_allow_html=True)
     
-    # Przekazanie bajtów audio oraz unikalnego klucza (key) dla każdego utworu:
+    # Bezpośrednie odtwarzanie dźwięku z adresu URL
     st.audio(
-    st.session_state.current_song["preview_url"], 
-    key=f"player_{st.session_state.audio_id}"
-)
+        st.session_state.current_song["preview_url"],
+        key=f"player_{st.session_state.audio_id}"
+    )
     
     default_option = "Nie mam pojęcia! :-)"
     selectable_options = [default_option] + st.session_state.options_list
