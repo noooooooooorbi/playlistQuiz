@@ -177,10 +177,9 @@ if st.session_state.current_song:
         </div>
     """, unsafe_allow_html=True)
     
-    # Direct URL + unikalny key wykluczają błędy typu i buforowanie piosenek przez przeglądarkę
+    # Wywołanie bez niedozwolonego parametru format
     st.audio(
         st.session_state.current_song["preview_url"], 
-        format="audio/mp3", 
         key=f"audio_player_{st.session_state.audio_key}"
     )
     
