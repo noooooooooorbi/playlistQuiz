@@ -32,8 +32,8 @@ if "total" not in st.session_state:
 
 def download_playlist(url):
     ydl_opts = {
-        'format': 'ba/ba*', # Pobierz dowolny format audio
-        'outtmpl': f'{DOWNLOAD_DIR}/%(artist,uploader)s - %(title)s.%(ext)s',
+        'format': 'ba/bestaudio/b',
+        'outtmpl': f'{DOWNLOAD_DIR}/%(id)s.%(ext)s',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',
@@ -42,27 +42,45 @@ def download_playlist(url):
         'quiet': True,
         'no_warnings': True,
         'nocheckcertificate': True,
-        'ignoreerrors': True, # Ignoruj niedostępne lub zablokowane filmy w playlistach
-        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'ignoreerrors': True,
+        # Ominięcie blokad IP serwerowych - podszywanie się pod klienta mobilnego iOS/Android
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['ios', 'android', 'web']
+            }
+        },
+        'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
     }
     
+    files = []
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=True)
-        files = []
-        if info:
-            entries = info.get('entries', [info])
-            for entry in entries:
-                if not entry:
-                    continue
-                filename = ydl.prepare_filename(entry)
-                mp3_filename = os.path.splitext(filename)[0] + ".mp3"
-                if os.path.exists(mp3_filename):
-                    title = entry.get('title', 'Unknown')
-                    artist = entry.get('artist') or entry.get('uploader', 'Unknown')
-                    if " - " in title:
-                        artist, title = title.split(" - ", 1)
-                    files.append({"path": mp3_filename, "artist": artist.strip(), "title": title.strip()})
-        return files
+        try:
+            info = ydl.extract_info(url, download=True)
+            if info:
+                entries = info.get('entries', [info])
+                for entry in entries:
+                    if not entry:
+                        continue
+                    video_id = entry.get('id')
+                    mp3_filename = os.path.join(DOWNLOAD_DIR, f"{video_id}.mp3")
+                    
+                    if os.path.exists(mp3_filename):
+                        title = entry.get('title', 'Unknown')
+                        artist = entry.get('artist') or entry.get('uploader') or entry.get('channel', 'Unknown')
+                        
+                        # Czyszczenie tytułu jeśli zawiera "Artist - Title"
+                        if " - " in title:
+                            artist, title = title.split(" - ", 1)
+                            
+                        files.append({
+                            "path": mp3_filename,
+                            "artist": artist.strip(),
+                            "title": title.strip()
+                        })
+        except Exception as e:
+            st.error(f"Szczegóły błędu: {e}")
+            
+    return files
 
 def draw_next_song():
     if not st.session_state.songs:
@@ -90,7 +108,7 @@ def draw_next_song():
 playlist_url = st.text_input("Wklej link do playlisty YouTube:")
 if st.button("Pobierz playlistę i rozpocznij"):
     if playlist_url:
-        with st.spinner("Pobieranie playlisty... To może chwilę potrwać."):
+        with st.spinner("Pobieranie playlisty... To może zająć 1-2 minuty."):
             st.session_state.songs = download_playlist(playlist_url)
             st.session_state.score = 0
             st.session_state.total = 0
@@ -98,7 +116,7 @@ if st.button("Pobierz playlistę i rozpocznij"):
                 draw_next_song()
                 st.success(f"Pobrano {len(st.session_state.songs)} piosenek!")
             else:
-                st.error("Nie udało się pobrać utworów. Upewnij się, że playlista jest publiczna.")
+                st.error("Nie udało się pobrać utworów z tej playlisty.")
     else:
         st.warning("Podaj link do playlisty.")
 
