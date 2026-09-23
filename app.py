@@ -125,15 +125,18 @@ def draw_next_song():
         st.session_state.clip_path = None
         return
     
+    # Losujemy utwor i usuwamy go z puli (brak powtórek)
     song = random.choice(st.session_state.songs_pool)
     st.session_state.songs_pool.remove(song)
     st.session_state.current_song = song
     st.session_state.answered = False
     st.session_state.last_correct = False
     
+    # Pobranie pliku z unikalną nazwą pliku, aby zapobiec buforowaniu w przeglądarce
     res = requests.get(song["preview_url"])
     if res.status_code == 200:
-        clip_path = os.path.join(CLIPS_DIR, "temp_clip.mp3")
+        clip_filename = f"clip_{st.session_state.total}_{random.randint(1000, 9999)}.mp3"
+        clip_path = os.path.join(CLIPS_DIR, clip_filename)
         with open(clip_path, "wb") as f:
             f.write(res.content)
         st.session_state.clip_path = clip_path
@@ -169,6 +172,7 @@ if st.button("Pobierz playlistę i rozpocznij grę"):
                 st.session_state.total = 0
                 draw_next_song()
                 st.success(f"Załadowano {len(fetched_songs)} piosenek!")
+                st.rerun()
             else:
                 st.error("Nie udało się pobrać playlisty. Upewnij się, że ID/link jest poprawny.")
     else:
@@ -185,6 +189,7 @@ if st.session_state.current_song and st.session_state.clip_path:
         </div>
     """, unsafe_allow_html=True)
     
+    # Przekazujemy klucz do st.audio, aby odtwarzacz wymusił załadowanie nowego pliku
     st.audio(st.session_state.clip_path, format="audio/mp3")
     
     default_option = "Nie mam pojęcia! :-)"
@@ -193,7 +198,7 @@ if st.session_state.current_song and st.session_state.clip_path:
     user_choice = st.selectbox(
         "Wybierz odpowiedź z listy:", 
         options=selectable_options, 
-        key=f"q_{st.session_state.total}"
+        key=f"q_{st.session_state.total}_{len(st.session_state.songs_pool)}"
     )
 
     if not st.session_state.answered:
@@ -219,10 +224,10 @@ if st.session_state.current_song and st.session_state.clip_path:
                     st.session_state.last_correct = True
                     st.balloons()
                     st.success("🎯 Poprawna odpowiedź! Punkty doliczone!")
-                    st.rerun()
                 else:
                     st.session_state.last_correct = False
                     st.error(f"❌ Błąd! Poprawna odpowiedź to: **{song['artist']} - {song['title']}**")
+            st.rerun()
 
     if st.session_state.answered:
         if st.button("Następne pytanie ➡️"):
