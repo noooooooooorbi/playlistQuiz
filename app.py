@@ -130,7 +130,6 @@ def draw_next_song():
     st.session_state.current_song = None
     st.session_state.has_audio_file = False
     
-    # Próbujemy wylosować piosenkę, która pomyślnie zapisze się na dysku
     while st.session_state.songs_pool:
         song = random.choice(st.session_state.songs_pool)
         st.session_state.songs_pool.remove(song)
@@ -189,7 +188,7 @@ if st.button("Pobierz playlistę i rozpocznij grę"):
         st.warning("Wybierz playlistę z listy lub wklej własny link.")
 
 # Panel rozgrywki
-if st.session_state.current_song and st.session_state.has_audio_file:
+if st.session_state.current_song and st.session_state.has_audio_file and os.path.exists(TEMP_FILE_PATH):
     song = st.session_state.current_song
     st.divider()
     
@@ -200,12 +199,13 @@ if st.session_state.current_song and st.session_state.has_audio_file:
         </div>
     """, unsafe_allow_html=True)
     
-    # Odtwarzanie ze sprawdzonego pliku lokalnego
-    st.audio(
-        TEMP_FILE_PATH, 
-        format="audio/mp3", 
-        key=f"player_{st.session_state.audio_id}"
-    )
+    # Otwieramy plik w trybie odczytu binarnego ("rb") – to eliminuje błąd TypeError
+    with open(TEMP_FILE_PATH, "rb") as audio_file:
+        st.audio(
+            audio_file.read(),
+            format="audio/mp3",
+            key=f"player_{st.session_state.audio_id}"
+        )
     
     default_option = "Nie mam pojęcia! :-)"
     selectable_options = [default_option] + st.session_state.options_list
