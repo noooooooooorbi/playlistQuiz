@@ -64,7 +64,8 @@ def load_predefined_playlists():
     if os.path.exists("playlists.json"):
         try:
             with open("playlists.json", "r", encoding="utf-8") as f:
-                data = json.load(f)
+                content = f.read().replace('\xa0', ' ')
+                data = json.loads(content)
                 if isinstance(data, list):
                     return data
         except Exception:
@@ -179,7 +180,6 @@ if st.session_state.current_song and "preview_url" in st.session_state.current_s
         </div>
     """, unsafe_allow_html=True)
     
-    # Bezpośrednie odtwarzanie dźwięku z adresu URL
     st.audio(
         st.session_state.current_song["preview_url"],
         key=f"player_{st.session_state.audio_id}"
