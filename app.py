@@ -64,7 +64,9 @@ def load_predefined_playlists():
     if os.path.exists("playlists.json"):
         try:
             with open("playlists.json", "r", encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
+                if isinstance(data, list):
+                    return data
         except Exception:
             return []
     return []
@@ -135,7 +137,7 @@ playlist_id_to_load = None
 st.subheader("Wybierz playlistę")
 
 if predefined:
-    options_map = {p["name"]: p["id"] for p in predefined}
+    options_map = {p["name"]: p["id"] for p in predefined if "name" in p and "id" in p}
     options_map["-- Wklej własny link / ID --"] = "custom"
     
     selected_name = st.selectbox("Wybierz gotową playlistę z listy:", options=list(options_map.keys()))
@@ -167,7 +169,7 @@ if st.button("Pobierz playlistę i rozpocznij grę"):
         st.warning("Wybierz playlistę z listy lub wklej własny link.")
 
 # Panel rozgrywki
-if st.session_state.current_song:
+if st.session_state.current_song and st.session_state.current_song.get("preview_url"):
     st.divider()
     
     score_class = "score-success" if st.session_state.last_correct else "score-normal"
@@ -177,7 +179,6 @@ if st.session_state.current_song:
         </div>
     """, unsafe_allow_html=True)
     
-    # Wywołanie bez niedozwolonego parametru format
     st.audio(
         st.session_state.current_song["preview_url"], 
         key=f"audio_player_{st.session_state.audio_key}"
