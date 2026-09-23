@@ -6,21 +6,43 @@ import streamlit as st
 
 st.set_page_config(page_title="Deezer Music Quiz by Norbbs", page_icon="🎵")
 
-# CSS: Powiększenie odtwarzacza i stylizacja banera
+# CSS: Kompaktowy wygląd dla urządzeń mobilnych
 st.markdown("""
     <style>
+    /* Zmniejszenie domyślnych odstępów Streamlita na samej górze */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+    }
+    
+    /* Zmniejszenie nagłówków h1 i h2/h3 */
+    h1 {
+        font-size: 1.5rem !important;
+        padding-bottom: 0px !important;
+        margin-bottom: 0px !important;
+    }
+    h2, h3, .stSubheader {
+        font-size: 1.1rem !important;
+        padding-top: 0px !important;
+        padding-bottom: 0.2rem !important;
+    }
+
+    /* Odtwarzacz audio */
     audio {
         width: 100% !important;
-        height: 70px !important;
-        transform: scale(1.02);
+        height: 45px !important;
     }
+
+    /* Baner z wynikiem */
     .score-box {
-        padding: 15px;
-        border-radius: 10px;
+        padding: 8px !important;
+        border-radius: 8px;
         text-align: center;
-        font-size: 22px;
+        font-size: 16px !important;
         font-weight: bold;
-        margin-bottom: 20px;
+        margin-bottom: 10px !important;
         transition: all 0.5s ease;
     }
     .score-normal {
@@ -32,7 +54,13 @@ st.markdown("""
         background-color: #1b4332;
         color: #2dc653;
         border: 2px solid #2dc653;
-        box-shadow: 0 0 15px rgba(45, 198, 83, 0.4);
+        box-shadow: 0 0 10px rgba(45, 198, 83, 0.4);
+    }
+    
+    /* Zmniejszenie marginesów separatorów (st.divider) */
+    hr {
+        margin-top: 0.5rem !important;
+        margin-bottom: 0.5rem !important;
     }
     </style>
 """, unsafe_allow_html=True)
