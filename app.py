@@ -1,6 +1,7 @@
 import os
 import json
 import random
+import io
 import requests
 import streamlit as st
 
@@ -49,6 +50,8 @@ if "options_list" not in st.session_state:
     st.session_state.options_list = []
 if "current_song" not in st.session_state:
     st.session_state.current_song = None
+if "clip_bytes" not in st.session_state:
+    st.session_state.clip_bytes = None
 if "score" not in st.session_state:
     st.session_state.score = 0
 if "total" not in st.session_state:
@@ -96,6 +99,7 @@ def fetch_deezer_playlist(playlist_id):
 
         for track in tracks:
             preview_url = track.get("preview")
+            # Dodatkowe zabezpieczenie: do playlisty wchodzą tylko utwory posiadające ważny link
             if preview_url and isinstance(preview_url, str) and preview_url.startswith("http"):
                 songs.append({
                     "title": track.get("title", "Unknown"),
@@ -122,6 +126,7 @@ def prepare_options(songs, selected_mode):
 def draw_next_song():
     if not st.session_state.songs_pool:
         st.session_state.current_song = None
+        st.session_state.clip_bytes = None
         return
     
     song = random.choice(st.session_state.songs_pool)
@@ -130,6 +135,16 @@ def draw_next_song():
     st.session_state.answered = False
     st.session_state.last_correct = False
     st.session_state.audio_id += 1
+    
+    # Pobieranie pliku mp3 do bufora pamięci io.BytesIO
+    try:
+        res = requests.get(song["preview_url"], timeout=10)
+        if res.status_code == 200 and len(res.content) > 0:
+            st.session_state.clip_bytes = io.BytesIO(res.content)
+        else:
+            st.session_state.clip_bytes = None
+    except Exception:
+        st.session_state.clip_bytes = None
 
 # Wczytanie gotowych playlist z pliku JSON
 predefined = load_predefined_playlists()
@@ -170,7 +185,7 @@ if st.button("Pobierz playlistę i rozpocznij grę"):
         st.warning("Wybierz playlistę z listy lub wklej własny link.")
 
 # Panel rozgrywki
-if st.session_state.current_song:
+if st.session_state.current_song and st.session_state.clip_bytes:
     song = st.session_state.current_song
     st.divider()
     
@@ -181,9 +196,10 @@ if st.session_state.current_song:
         </div>
     """, unsafe_allow_html=True)
     
-    # Odtwarzanie bezpośrednio z URL (eliminuje błędne bajty)
+    # Odtwarzanie bezpiecznego obiektu BytesIO
     st.audio(
-        song["preview_url"],
+        st.session_state.clip_bytes, 
+        format="audio/mp3", 
         key=f"player_{st.session_state.audio_id}"
     )
     
