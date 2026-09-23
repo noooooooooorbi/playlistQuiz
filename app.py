@@ -4,11 +4,6 @@ import random
 import requests
 import streamlit as st
 
-DOWNLOAD_DIR = "downloads"
-CLIPS_DIR = "clips"
-os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-os.makedirs(CLIPS_DIR, exist_ok=True)
-
 st.set_page_config(page_title="Deezer Music Quiz", page_icon="🎵")
 
 # CSS: Powiększenie odtwarzacza i stylizacja banera
@@ -54,8 +49,6 @@ if "options_list" not in st.session_state:
     st.session_state.options_list = []
 if "current_song" not in st.session_state:
     st.session_state.current_song = None
-if "clip_bytes" not in st.session_state:
-    st.session_state.clip_bytes = None
 if "score" not in st.session_state:
     st.session_state.score = 0
 if "total" not in st.session_state:
@@ -64,8 +57,8 @@ if "answered" not in st.session_state:
     st.session_state.answered = False
 if "last_correct" not in st.session_state:
     st.session_state.last_correct = False
-if "audio_id" not in st.session_state:
-    st.session_state.audio_id = 0
+if "audio_key" not in st.session_state:
+    st.session_state.audio_key = 0
 
 def load_predefined_playlists():
     if os.path.exists("playlists.json"):
@@ -124,24 +117,16 @@ def prepare_options(songs, selected_mode):
     return sorted(list(options))
 
 def draw_next_song():
-    st.session_state.clip_bytes = None
-    st.session_state.current_song = None
+    if not st.session_state.songs_pool:
+        st.session_state.current_song = None
+        return
     
-    while st.session_state.songs_pool and not st.session_state.clip_bytes:
-        song = random.choice(st.session_state.songs_pool)
-        st.session_state.songs_pool.remove(song)
-        
-        try:
-            res = requests.get(song["preview_url"], timeout=10)
-            if res.status_code == 200 and res.content:
-                st.session_state.clip_bytes = res.content
-                st.session_state.current_song = song
-                st.session_state.answered = False
-                st.session_state.last_correct = False
-                st.session_state.audio_id += 1
-                break
-        except Exception:
-            continue
+    song = random.choice(st.session_state.songs_pool)
+    st.session_state.songs_pool.remove(song)
+    st.session_state.current_song = song
+    st.session_state.answered = False
+    st.session_state.last_correct = False
+    st.session_state.audio_key += 1
 
 # Wczytanie gotowych playlist z pliku JSON
 predefined = load_predefined_playlists()
@@ -172,7 +157,7 @@ if st.button("Pobierz playlistę i rozpocznij grę"):
                 st.session_state.options_list = prepare_options(fetched_songs, mode)
                 st.session_state.score = 0
                 st.session_state.total = 0
-                st.session_state.audio_id = 0
+                st.session_state.audio_key = 0
                 draw_next_song()
                 st.success(f"Załadowano {len(fetched_songs)} piosenek!")
                 st.rerun()
@@ -182,7 +167,7 @@ if st.button("Pobierz playlistę i rozpocznij grę"):
         st.warning("Wybierz playlistę z listy lub wklej własny link.")
 
 # Panel rozgrywki
-if st.session_state.current_song and st.session_state.clip_bytes is not None:
+if st.session_state.current_song:
     st.divider()
     
     score_class = "score-success" if st.session_state.last_correct else "score-normal"
@@ -192,8 +177,12 @@ if st.session_state.current_song and st.session_state.clip_bytes is not None:
         </div>
     """, unsafe_allow_html=True)
     
-    # Przekazanie bajtów audio oraz unikalnego klucza
-    st.audio(st.session_state.clip_bytes, format="audio/mp3", key=f"player_{st.session_state.audio_id}")
+    # Direct URL + unikalny key wykluczają błędy typu i buforowanie piosenek przez przeglądarkę
+    st.audio(
+        st.session_state.current_song["preview_url"], 
+        format="audio/mp3", 
+        key=f"audio_player_{st.session_state.audio_key}"
+    )
     
     default_option = "Nie mam pojęcia! :-)"
     selectable_options = [default_option] + st.session_state.options_list
@@ -201,7 +190,7 @@ if st.session_state.current_song and st.session_state.clip_bytes is not None:
     user_choice = st.selectbox(
         "Wybierz odpowiedź z listy:", 
         options=selectable_options, 
-        key=f"q_select_{st.session_state.audio_id}"
+        key=f"q_select_{st.session_state.audio_key}"
     )
 
     if not st.session_state.answered:
