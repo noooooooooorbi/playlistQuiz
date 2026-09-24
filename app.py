@@ -10,7 +10,7 @@ st.set_page_config(page_title="QuizNuta", page_icon="🎵", layout="centered")
 TEMP_DIR = "temp_audio"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
-# CSS: Nowoczesny interfejs QuizNuta bez paska bocznego
+# CSS: Nowoczesny interfejs QuizNuta z dopasowanymi listami rozwijanymi
 st.markdown("""
     <style>
     /* Ukrywamy domyślne paski i sidebar Streamlita */
@@ -192,20 +192,9 @@ st.markdown("""
         box-shadow: 0 6px 20px rgba(255, 0, 122, 0.5) !important;
     }
 
-    /* Dopasowanie kontrolek radio w grze */
-    div[role="radiogroup"] {
-        flex-direction: row !important;
-        justify-content: space-between !important;
-        gap: 5px !important;
-    }
-    div[role="radiogroup"] > label {
-        background-color: #121622 !important;
-        border: 1px solid #1e2436 !important;
-        padding: 6px 10px !important;
-        border-radius: 10px !important;
-        margin: 0 !important;
-        flex: 1 !important;
-        text-align: center !important;
+    /* Dopasowanie pól wyboru */
+    div[data-baseweb="select"] {
+        border-radius: 12px !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -313,26 +302,28 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# Przeniesione Ustawienia: Tryb odgadywania na ekranie głównym
-mode = st.radio(
-    "🎯 Tryb gry:", 
-    ["Wykonawca", "Tytuł", "Wykonawca i Tytuł"], 
-    index=0, 
-    horizontal=True
-)
+# Sekcja opcji: Playlista i Tryb gry w 2 kolumnach obok siebie
+col1, col2 = st.columns(2)
 
-# Wybór playlisty
 predefined = load_predefined_playlists()
 playlist_id_to_load = None
 
-if predefined:
-    options_map = {p["name"]: str(p["id"]) for p in predefined if "name" in p and "id" in p}
-    options_map["-- Wklej własny link / ID --"] = "custom"
-    
-    selected_name = st.selectbox("🎛️ Playlista:", options=list(options_map.keys()))
-    
-    if options_map[selected_name] != "custom":
-        playlist_id_to_load = options_map[selected_name]
+with col1:
+    if predefined:
+        options_map = {p["name"]: str(p["id"]) for p in predefined if "name" in p and "id" in p}
+        options_map["-- Wklej własny link / ID --"] = "custom"
+        
+        selected_name = st.selectbox("🎛️ Playlista:", options=list(options_map.keys()))
+        
+        if options_map[selected_name] != "custom":
+            playlist_id_to_load = options_map[selected_name]
+
+with col2:
+    mode = st.selectbox(
+        "🎯 Tryb gry:", 
+        options=["Wykonawca", "Tytuł", "Wykonawca i Tytuł"], 
+        index=0
+    )
 
 if not playlist_id_to_load:
     custom_input = st.text_input("Wklej link do playlisty Deezer:", placeholder="https://www.deezer.com/pl/playlist/908622995")
