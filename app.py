@@ -448,13 +448,14 @@ if st.session_state.current_song:
         icon = "🎯" if st.session_state.last_correct else "❌"
 
         if clean_mode == "Wykonawca":
-            main_text, sub_text = song['artist'], song['title']
+            main_text = song['artist']
+            sub_html = f'<div class="feedback-sub">{song["title"]}</div>'
         elif clean_mode == "Tytuł":
-            main_text, sub_text = song['title'], song['artist']
+            main_text = song['title']
+            sub_html = f'<div class="feedback-sub">{song["artist"]}</div>'
         else:
-            main_text, sub_text = f"{song['artist']} - {song['title']}", ""
-
-        sub_html = f'<div class="feedback-sub">{sub_text}</div>' if sub_text else ''
+            main_text = song['artist']
+            sub_html = f'<div class="feedback-main">{song["title"]}</div>'
 
         st.markdown(f"""
             <div class="feedback-box {box_class}">
