@@ -20,6 +20,7 @@ st.markdown("""
     /* Zapobieganie przewijaniu poziomemu */
     html, body, [data-testid="stAppViewContainer"], .main {
         overflow-x: hidden !important;
+        max-width: 100vw !important;
     }
 
     /* Główny kontener aplikacji */
@@ -32,7 +33,7 @@ st.markdown("""
         margin: 0 auto !important;
     }
 
-    /* UKŁAD KOLUMN DLA DESKTOPA I MOBILE */
+    /* UKŁAD DOMYŚLNY (DESKTOP): 2 KOLUMNY OBOK SIEBIE */
     [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
@@ -59,11 +60,24 @@ st.markdown("""
     div[data-baseweb="select"] {
         border-radius: 12px !important;
         width: 100% !important;
+        min-width: 0 !important;
     }
 
     div[data-baseweb="select"] > div {
         padding-left: 8px !important;
         padding-right: 8px !important;
+    }
+
+    /* RWD MOBILNE (< 600px): UKŁAD JEDEN POD DRUGIM, BY NIC NIE WYSTAWAŁO */
+    @media (max-width: 600px) {
+        [data-testid="stHorizontalBlock"] {
+            flex-direction: column !important;
+            gap: 8px !important;
+        }
+        [data-testid="column"] {
+            width: 100% !important;
+            flex: 1 1 100% !important;
+        }
     }
 
     /* Nagłówek QuizNuta */
@@ -211,17 +225,6 @@ st.markdown("""
         font-size: 1rem !important;
         font-weight: 700 !important;
         box-shadow: 0 4px 15px rgba(255, 0, 122, 0.3) !important;
-    }
-
-    /* MIKRO-POPRAWKI DLA EKRANÓW MOBILNYCH (<600px) */
-    @media (max-width: 600px) {
-        [data-testid="stHorizontalBlock"] {
-            gap: 6px !important;
-        }
-        div[data-baseweb="select"] > div {
-            padding-left: 4px !important;
-            padding-right: 4px !important;
-        }
     }
     </style>
 """, unsafe_allow_html=True)
