@@ -10,7 +10,7 @@ st.set_page_config(page_title="QuizNuta", page_icon="🎵", layout="centered")
 TEMP_DIR = "temp_audio"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
-# CSS: Nowoczesny interfejs QuizNuta z precyzyjnym pozycjonowaniem "by Norbbs"
+# CSS: Nowoczesny interfejs QuizNuta
 st.markdown("""
     <style>
     /* Ukrywamy domyślne paski i sidebar Streamlita */
@@ -150,15 +150,15 @@ st.markdown("""
         margin-top: 4px;
     }
 
-    /* Baner z podpowiedzią/wynikiem */
+    /* Baner z informacją o odpowiedzi */
     .feedback-box {
         background-color: #121622;
         border: 1px solid #1e2436;
         border-radius: 14px;
         padding: 12px 14px;
         display: flex;
-        align-items: flex-start;
-        gap: 12px;
+        align-items: center;
+        gap: 14px;
         margin-top: 10px;
         margin-bottom: 12px;
     }
@@ -171,17 +171,27 @@ st.markdown("""
         background-color: rgba(255, 51, 102, 0.08);
     }
     .feedback-icon {
-        font-size: 18px;
-        margin-top: 1px;
+        font-size: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
     .feedback-text {
-        font-size: 0.85rem;
-        color: #a0a5b5;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
     }
-    .feedback-title {
+    .feedback-main {
+        font-size: 1rem;
         font-weight: 700;
         color: #ffffff;
-        margin-bottom: 2px;
+        line-height: 1.2;
+    }
+    .feedback-sub {
+        font-size: 0.82rem;
+        color: #a0a5b5;
+        margin-top: 2px;
+        line-height: 1.2;
     }
 
     /* Stylizacja przycisku głównego */
@@ -405,7 +415,6 @@ if st.session_state.current_song:
             st.session_state.answered = True
             
             correct = False
-            # Jeśli wybrano domyślnie "Nie mam pojęcia :-)", od razu traktujemy odpowiedź jako niepoprawną
             if user_choice != default_option:
                 if mode == "Tytuł" and user_choice == song["title"]:
                     correct = True
@@ -423,17 +432,28 @@ if st.session_state.current_song:
             
             st.rerun()
     else:
-        # Pokaż wynik / odpowiedź
+        # Konfiguracja ikony oraz baneru z rozróżnieniem rozmiaru czcionek wg trybu
         box_class = "correct" if st.session_state.last_correct else "wrong"
-        icon = "🎯" if st.session_state.last_correct else "💡"
-        title = "Poprawna odpowiedź!" if st.session_state.last_correct else "Poprawna odpowiedź to:"
+        icon = "🎯" if st.session_state.last_correct else "❌"
+
+        if mode == "Wykonawca":
+            main_text = song['artist']
+            sub_text = song['title']
+        elif mode == "Tytuł":
+            main_text = song['title']
+            sub_text = song['artist']
+        else: # "Wykonawca i Tytuł"
+            main_text = f"{song['artist']} - {song['title']}"
+            sub_text = ""
+
+        sub_html = f'<div class="feedback-sub">{sub_text}</div>' if sub_text else ''
 
         st.markdown(f"""
             <div class="feedback-box {box_class}">
                 <div class="feedback-icon">{icon}</div>
-                <div>
-                    <div class="feedback-title">{title}</div>
-                    <div class="feedback-text"><strong>{song['artist']} - {song['title']}</strong></div>
+                <div class="feedback-text">
+                    <div class="feedback-main">{main_text}</div>
+                    {sub_html}
                 </div>
             </div>
         """, unsafe_allow_html=True)
