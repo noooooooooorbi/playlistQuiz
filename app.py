@@ -247,6 +247,8 @@ if "current_playlist_id" not in st.session_state:
     st.session_state.current_playlist_id = None
 if "missing_tracks" not in st.session_state:
     st.session_state.missing_tracks = []
+if "trigger_focus_reset" not in st.session_state:
+    st.session_state.trigger_focus_reset = 0
 
 def load_predefined_playlists():
     if os.path.exists("playlists.json"):
@@ -328,6 +330,7 @@ def draw_next_song():
     st.session_state.answered = False
     st.session_state.last_correct = False
     st.session_state.audio_id += 1
+    st.session_state.trigger_focus_reset += 1
 
 def start_new_game(playlist_id, mode):
     with st.spinner("Pobieranie pełnej playlisty..."):
@@ -346,6 +349,9 @@ def start_new_game(playlist_id, mode):
         else:
             st.error("Błąd pobierania playlisty. Sprawdź czy jest publiczna.")
             return False
+
+def on_select_change():
+    st.session_state.trigger_focus_reset += 1
 
 # Nagłówek
 st.markdown("""
@@ -446,28 +452,31 @@ if st.session_state.current_song:
     user_choice = st.selectbox(
         "Wybierz odpowiedź z listy:", 
         options=selectable_options, 
-        key=f"q_select_{st.session_state.audio_id}"
+        key=f"q_select_{st.session_state.audio_id}",
+        on_change=on_select_change
     )
 
-    # MECHANIZM AUTOMATYCZNEGO PRZENOSZENIA FOKUSU NA ODTWARZACZ AUDIO
-    st.components.v1.html("""
+    # Ulepszony JS – wymusza zdejmujący blur i skupienie na audio z ciągłym próbkowaniem
+    st.components.v1.html(f"""
         <script>
-            setTimeout(function() {
-                // 1. Znajdź odtwarzacz audio w oknie nadrzędnym
-                var audioElem = window.parent.document.querySelector('audio');
-                
-                // 2. Jeśli jest jakikolwiek aktywny input (np. rozwijana lista), zdejmij z niego fokus
-                if (window.parent.document.activeElement) {
-                    window.parent.document.activeElement.blur();
-                }
-
-                // 3. Ustaw fokus na odtwarzaczu audio
-                if (audioElem) {
+            function shiftFocusToAudio() {{
+                var parentDoc = window.parent.document;
+                var active = parentDoc.activeElement;
+                if (active) {{
+                    active.blur();
+                }}
+                var audioElem = parentDoc.querySelector('audio');
+                if (audioElem) {{
                     audioElem.focus();
-                }
-            }, 100);
+                }}
+            }}
+            
+            // Wykonaj od razu oraz po krótkiej chwili, gdy Streamlit zakończy renderowanie
+            shiftFocusToAudio();
+            setTimeout(shiftFocusToAudio, 150);
+            setTimeout(shiftFocusToAudio, 350);
         </script>
-    """, height=0)
+    """, height=0, key=f"focus_script_{st.session_state.trigger_focus_reset}")
 
     if not st.session_state.answered:
         if st.button("Sprawdź odpowiedź 🎯"):
