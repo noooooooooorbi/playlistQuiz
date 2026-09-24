@@ -243,6 +243,8 @@ if "last_correct" not in st.session_state:
     st.session_state.last_correct = False
 if "audio_id" not in st.session_state:
     st.session_state.audio_id = 0
+if "current_playlist_id" not in st.session_state:
+    st.session_state.current_playlist_id = None
 
 def load_predefined_playlists():
     if os.path.exists("playlists.json"):
@@ -312,6 +314,23 @@ def draw_next_song():
     st.session_state.last_correct = False
     st.session_state.audio_id += 1
 
+def start_new_game(playlist_id, mode):
+    with st.spinner("Pobieranie playlisty..."):
+        fetched_songs = fetch_deezer_playlist(playlist_id)
+        if fetched_songs:
+            st.session_state.current_playlist_id = playlist_id
+            st.session_state.full_playlist = fetched_songs.copy()
+            st.session_state.songs_pool = fetched_songs.copy()
+            st.session_state.options_list = prepare_options(fetched_songs, mode)
+            st.session_state.score = 0
+            st.session_state.total = 0
+            st.session_state.audio_id = 0
+            draw_next_song()
+            return True
+        else:
+            st.error("Błąd pobierania playlisty. Sprawdź czy jest publiczna.")
+            return False
+
 # Nagłówek
 st.markdown("""
     <div class="app-header">
@@ -360,25 +379,19 @@ if not playlist_id_to_load:
     if custom_input:
         playlist_id_to_load = extract_playlist_id(custom_input)
 
+# Wykrywanie zmiany playlisty na nową – natychmiastowy reset i załadowanie nowej gry
+if playlist_id_to_load and playlist_id_to_load != st.session_state.current_playlist_id:
+    if start_new_game(playlist_id_to_load, clean_mode):
+        st.rerun()
+
 if st.session_state.full_playlist:
     st.session_state.options_list = prepare_options(st.session_state.full_playlist, clean_mode)
 
 if not st.session_state.current_song and st.session_state.total == 0:
     if st.button("Pobierz playlistę i rozpocznij grę"):
         if playlist_id_to_load:
-            with st.spinner("Pobieranie..."):
-                fetched_songs = fetch_deezer_playlist(playlist_id_to_load)
-                if fetched_songs:
-                    st.session_state.full_playlist = fetched_songs.copy()
-                    st.session_state.songs_pool = fetched_songs.copy()
-                    st.session_state.options_list = prepare_options(fetched_songs, clean_mode)
-                    st.session_state.score = 0
-                    st.session_state.total = 0
-                    st.session_state.audio_id = 0
-                    draw_next_song()
-                    st.rerun()
-                else:
-                    st.error("Błąd pobierania. Sprawdź czy playlista jest publiczna.")
+            if start_new_game(playlist_id_to_load, clean_mode):
+                st.rerun()
         else:
             st.warning("Wybierz playlistę.")
 
@@ -406,7 +419,6 @@ if st.session_state.current_song:
         </div>
     """, unsafe_allow_html=True)
 
-    # Ładowanie utworu audio
     if song.get("preview_url"):
         st.audio(song["preview_url"])
     else:
@@ -480,4 +492,5 @@ elif st.session_state.total > 0 and not st.session_state.songs_pool:
     if st.button("Zagraj ponownie"):
         st.session_state.total = 0
         st.session_state.current_song = None
+        st.session_state.current_playlist_id = None
         st.rerun()
