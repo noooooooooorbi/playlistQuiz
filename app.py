@@ -449,6 +449,26 @@ if st.session_state.current_song:
         key=f"q_select_{st.session_state.audio_id}"
     )
 
+    # MECHANIZM AUTOMATYCZNEGO PRZENOSZENIA FOKUSU NA ODTWARZACZ AUDIO
+    st.components.v1.html("""
+        <script>
+            setTimeout(function() {
+                // 1. Znajdź odtwarzacz audio w oknie nadrzędnym
+                var audioElem = window.parent.document.querySelector('audio');
+                
+                // 2. Jeśli jest jakikolwiek aktywny input (np. rozwijana lista), zdejmij z niego fokus
+                if (window.parent.document.activeElement) {
+                    window.parent.document.activeElement.blur();
+                }
+
+                // 3. Ustaw fokus na odtwarzaczu audio
+                if (audioElem) {
+                    audioElem.focus();
+                }
+            }, 100);
+        </script>
+    """, height=0)
+
     if not st.session_state.answered:
         if st.button("Sprawdź odpowiedź 🎯"):
             st.session_state.total += 1
