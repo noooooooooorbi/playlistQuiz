@@ -1,51 +1,63 @@
+import os
+import json
+import random
+import requests
+import streamlit as st
+
+st.set_page_config(page_title="QuizNuta", page_icon="🎵", layout="centered")
+
+TEMP_DIR = "temp_audio"
+os.makedirs(TEMP_DIR, exist_ok=True)
+
+# CSS z ułożeniem pionowym na mobile i poziomym na desktopie
 st.markdown("""
     <style>
-    /* Reset paska nagłówka i stopki */
+    /* Reset paska nagłówka, stopki i paska bocznego */
     header[data-testid="stHeader"], footer, [data-testid="stSidebar"], [data-testid="collapsedControl"] {
         display: none !important;
     }
 
     /* Zapobieganie przewijaniu poziomemu */
-    html, body, [data-testid="stAppViewContainer"], .main {
+    html, body, [data-testid="stAppViewContainer"], .main, .block-container {
         overflow-x: hidden !important;
         max-width: 100vw !important;
     }
 
     /* Główny kontener aplikacji */
     .block-container {
-        padding-top: 1.2rem !important;
-        padding-bottom: 1rem !important;
-        padding-left: 0.8rem !important;
-        padding-right: 0.8rem !important;
+        padding: 1.2rem 0.8rem 1rem 0.8rem !important;
         max-width: 500px !important;
         margin: 0 auto !important;
     }
 
-    /* ZACHOWANIE 1 WIERSZA NA KAŻDYM EKRANIE */
+    /* DESKTOP (DOMYŚLNIE): 2 KOLUMNY OBOK SIEBIE */
     [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
-        gap: 8px !important;
+        gap: 12px !important;
         width: 100% !important;
-        align-items: flex-end !important;
     }
 
-    /* Pierwsza kolumna (80%) */
-    [data-testid="column"]:nth-child(1) {
-        flex: 4 1 80% !important;
-        width: 80% !important;
+    [data-testid="column"] {
+        flex: 1 1 50% !important;
+        width: 50% !important;
         min-width: 0 !important;
     }
 
-    /* Druga kolumna (20%) */
-    [data-testid="column"]:nth-child(2) {
-        flex: 1 1 20% !important;
-        width: 20% !important;
-        min-width: 0 !important;
+    /* MOBILE (< 600px): UKŁAD JEDEN POD DRUGIM */
+    @media (max-width: 600px) {
+        [data-testid="stHorizontalBlock"] {
+            flex-direction: column !important;
+            gap: 10px !important;
+        }
+        [data-testid="column"] {
+            width: 100% !important;
+            flex: 1 1 100% !important;
+        }
     }
 
-    /* Etykiety i pola wybieralne */
+    /* Stylizacja selektorów i etykiet */
     div[data-testid="stWidgetLabel"] p {
         font-size: 0.85rem !important;
         font-weight: 600 !important;
@@ -60,34 +72,9 @@ st.markdown("""
         min-width: 0 !important;
     }
 
-    /* MIKRO-STYLIZACJA DLA DRUGIEJ KOLUMNY NA MOBILE (< 600px) */
-    @media (max-width: 600px) {
-        /* Ukrywamy etykietę nad drugim selektorem (zostawiamy samą w pierwszej kolumnie) */
-        [data-testid="column"]:nth-child(2) div[data-testid="stWidgetLabel"] {
-            display: none !important;
-        }
-
-        /* Zmniejszamy wewnętrzne marginesy pola, by zmieścić ikonkę */
-        [data-testid="column"]:nth-child(2) div[data-baseweb="select"] > div {
-            padding-left: 6px !important;
-            padding-right: 4px !important;
-            justify-content: center !important;
-        }
-
-        /* Ukrywamy domyślną strzałkę rozwijania w 2. kolumnie na rzecz oszczędności miejsca */
-        [data-testid="column"]:nth-child(2) svg {
-            display: none !important;
-        }
-
-        /* Przycinamy tekst, by widoczna była tylko pierwsza ikonka Emoji */
-        [data-testid="column"]:nth-child(2) [data-aria-selected="true"],
-        [data-testid="column"]:nth-child(2) div[role="combobox"] {
-            max-width: 28px !important;
-            overflow: hidden !important;
-            text-overflow: clip !important;
-            font-size: 1.1rem !important;
-            text-align: center !important;
-        }
+    div[data-baseweb="select"] > div {
+        padding-left: 8px !important;
+        padding-right: 8px !important;
     }
 
     /* Nagłówek QuizNuta */
@@ -238,3 +225,253 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
+
+# Inicjalizacja stanu
+if "full_playlist" not in st.session_state:
+    st.session_state.full_playlist = []
+if "songs_pool" not in st.session_state:
+    st.session_state.songs_pool = []
+if "options_list" not in st.session_state:
+    st.session_state.options_list = []
+if "current_song" not in st.session_state:
+    st.session_state.current_song = None
+if "score" not in st.session_state:
+    st.session_state.score = 0
+if "total" not in st.session_state:
+    st.session_state.total = 0
+if "answered" not in st.session_state:
+    st.session_state.answered = False
+if "last_correct" not in st.session_state:
+    st.session_state.last_correct = False
+if "audio_id" not in st.session_state:
+    st.session_state.audio_id = 0
+
+def load_predefined_playlists():
+    if os.path.exists("playlists.json"):
+        try:
+            with open("playlists.json", "r", encoding="utf-8") as f:
+                content = f.read().replace('\xa0', ' ')
+                data = json.loads(content)
+                if isinstance(data, list):
+                    return data
+        except Exception:
+            return []
+    return []
+
+def extract_playlist_id(url):
+    clean_url = url.split("?")[0]
+    parts = clean_url.strip("/").split("/")
+    for part in reversed(parts):
+        if part.isdigit():
+            return part
+    return url
+
+def fetch_deezer_playlist(playlist_id):
+    api_url = f"https://api.deezer.com/playlist/{playlist_id}"
+    try:
+        response = requests.get(api_url, timeout=10)
+        if response.status_code != 200:
+            return []
+        data = response.json()
+        if "error" in data:
+            return []
+
+        tracks = data.get("tracks", {}).get("data", [])
+        songs = []
+
+        for track in tracks:
+            preview_url = track.get("preview")
+            if preview_url and isinstance(preview_url, str) and preview_url.startswith("http"):
+                songs.append({
+                    "title": track.get("title", "Unknown"),
+                    "artist": track.get("artist", {}).get("name", "Unknown"),
+                    "preview_url": preview_url
+                })
+        return songs
+    except Exception:
+        return []
+
+def prepare_options(songs, raw_mode):
+    options = set()
+    for s in songs:
+        if "Tytuł" in raw_mode and "Wykonawca" not in raw_mode:
+            options.add(s["title"])
+        elif "Wykonawca" in raw_mode and "Tytuł" not in raw_mode:
+            options.add(s["artist"])
+        else:
+            options.add(f'{s["artist"]} - {s["title"]}')
+    return sorted(list(options))
+
+def draw_next_song():
+    if not st.session_state.songs_pool:
+        st.session_state.current_song = None
+        return
+    song = random.choice(st.session_state.songs_pool)
+    st.session_state.songs_pool.remove(song)
+    st.session_state.current_song = song
+    st.session_state.answered = False
+    st.session_state.last_correct = False
+    st.session_state.audio_id += 1
+
+# Nagłówek
+st.markdown("""
+    <div class="app-header">
+        <div class="app-title-container">
+            <div class="app-logo">🎵</div>
+            <div class="app-title-wrapper">
+                <h1 class="app-title">QuizNuta</h1>
+                <span class="app-subtitle">by Norbbs</span>
+            </div>
+        </div>
+        <div class="badge-live">Live</div>
+    </div>
+""", unsafe_allow_html=True)
+
+mode_options = [
+    "👤 Wykonawca",
+    "🎵 Tytuł",
+    "🔀 Obie opcje"
+]
+
+predefined = load_predefined_playlists()
+playlist_id_to_load = None
+
+col1, col2 = st.columns(2)
+
+with col1:
+    if predefined:
+        options_map = {p["name"]: str(p["id"]) for p in predefined if "name" in p and "id" in p}
+        options_map["-- Inny link --"] = "custom"
+        selected_name = st.selectbox("🎛️ Playlista:", options=list(options_map.keys()))
+        if options_map[selected_name] != "custom":
+            playlist_id_to_load = options_map[selected_name]
+
+with col2:
+    selected_mode_full = st.selectbox("🎯 Tryb gry:", options=mode_options, index=0)
+
+if "Obie opcje" in selected_mode_full:
+    clean_mode = "Wykonawca i Tytuł"
+elif "Tytuł" in selected_mode_full:
+    clean_mode = "Tytuł"
+else:
+    clean_mode = "Wykonawca"
+
+if not playlist_id_to_load:
+    custom_input = st.text_input("Link Deezer:", placeholder="https://www.deezer.com/pl/playlist/908622995")
+    if custom_input:
+        playlist_id_to_load = extract_playlist_id(custom_input)
+
+if st.session_state.full_playlist:
+    st.session_state.options_list = prepare_options(st.session_state.full_playlist, clean_mode)
+
+if not st.session_state.current_song and st.session_state.total == 0:
+    if st.button("Pobierz playlistę i rozpocznij grę"):
+        if playlist_id_to_load:
+            with st.spinner("Pobieranie..."):
+                fetched_songs = fetch_deezer_playlist(playlist_id_to_load)
+                if fetched_songs:
+                    st.session_state.full_playlist = fetched_songs.copy()
+                    st.session_state.songs_pool = fetched_songs.copy()
+                    st.session_state.options_list = prepare_options(fetched_songs, clean_mode)
+                    st.session_state.score = 0
+                    st.session_state.total = 0
+                    st.session_state.audio_id = 0
+                    draw_next_song()
+                    st.rerun()
+                else:
+                    st.error("Błąd pobierania.")
+        else:
+            st.warning("Wybierz playlistę.")
+
+if st.session_state.current_song:
+    song = st.session_state.current_song
+    remaining_count = len(st.session_state.songs_pool) + 1
+    accuracy = int((st.session_state.score / st.session_state.total * 100)) if st.session_state.total > 0 else 0
+
+    st.markdown(f"""
+        <div class="stats-container">
+            <div class="stat-card">
+                <div>
+                    <div class="stat-label">TWÓJ WYNIK</div>
+                    <div class="stat-value">{st.session_state.score} / {st.session_state.total} <span>({accuracy}%)</span></div>
+                </div>
+                <div class="stat-icon">🏆</div>
+            </div>
+            <div class="stat-card">
+                <div>
+                    <div class="stat-label">POZOSTAŁO</div>
+                    <div class="stat-value">{remaining_count} <span>piosenek</span></div>
+                </div>
+                <div class="stat-icon">🎵</div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    st.audio(song["preview_url"])
+
+    default_option = "Nie mam pojęcia :-)"
+    selectable_options = [default_option] + st.session_state.options_list
+    
+    user_choice = st.selectbox(
+        "Wybierz odpowiedź z listy:", 
+        options=selectable_options, 
+        key=f"q_select_{st.session_state.audio_id}"
+    )
+
+    if not st.session_state.answered:
+        if st.button("Sprawdź odpowiedź 🎯"):
+            st.session_state.total += 1
+            st.session_state.answered = True
+            
+            correct = False
+            if user_choice != default_option:
+                if clean_mode == "Tytuł" and user_choice == song["title"]:
+                    correct = True
+                elif clean_mode == "Wykonawca" and user_choice == song["artist"]:
+                    correct = True
+                elif clean_mode == "Wykonawca i Tytuł" and user_choice == f'{song["artist"]} - {song["title"]}':
+                    correct = True
+
+            st.session_state.last_correct = correct
+            if correct:
+                st.session_state.score += 1
+                st.balloons()
+            st.rerun()
+    else:
+        box_class = "correct" if st.session_state.last_correct else "wrong"
+        icon = "🎯" if st.session_state.last_correct else "❌"
+
+        if clean_mode == "Wykonawca":
+            main_text, sub_text = song['artist'], song['title']
+        elif clean_mode == "Tytuł":
+            main_text, sub_text = song['title'], song['artist']
+        else:
+            main_text, sub_text = f"{song['artist']} - {song['title']}", ""
+
+        sub_html = f'<div class="feedback-sub">{sub_text}</div>' if sub_text else ''
+
+        st.markdown(f"""
+            <div class="feedback-box {box_class}">
+                <div class="feedback-icon">{icon}</div>
+                <div>
+                    <div class="feedback-main">{main_text}</div>
+                    {sub_html}
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        if st.button("Następne pytanie ➔"):
+            draw_next_song()
+            st.rerun()
+
+elif st.session_state.total > 0 and not st.session_state.songs_pool:
+    st.balloons()
+    st.markdown("""
+        <div class="feedback-box correct" style="text-align: center; display: block;">
+            <h2>🎉 Koniec Quizu!</h2>
+        </div>
+    """, unsafe_allow_html=True)
+    st.subheader(f"Ostateczny wynik: {st.session_state.score} / {st.session_state.total}")
+    if st.button("Zagraj ponownie"):
+        st.session_state.total = 0
+        st.rerun()
