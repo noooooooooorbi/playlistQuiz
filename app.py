@@ -6,29 +6,67 @@ import streamlit as st
 
 st.set_page_config(page_title="QuizNuta", page_icon="🎵", layout="centered")
 
-# Katalog na pliki tymczasowe
 TEMP_DIR = "temp_audio"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
-# CSS: Nowoczesny interfejs QuizNuta + rygorystyczne wymuszenie kolumn w jednym wierszu
+# CSS: Wymuszenie idealnego responsive layoutu bez rozpychania ekranu
 st.markdown("""
     <style>
-    /* Ukrywamy domyślne paski i sidebar Streamlita */
+    /* Ukrycie paska nagłówka i marginesów domyślnych */
     header[data-testid="stHeader"] { display: none !important; }
     footer { display: none !important; }
     [data-testid="stSidebar"] { display: none !important; }
     [data-testid="collapsedControl"] { display: none !important; }
 
-    /* Główny kontener aplikacji */
     .block-container {
         padding-top: 1.2rem !important;
         padding-bottom: 1rem !important;
         padding-left: 0.8rem !important;
         padding-right: 0.8rem !important;
         max-width: 500px !important;
+        overflow-x: hidden !important;
     }
 
-    /* Nagłówek aplikacji */
+    /* Wymuszenie dopasowania wewnętrznych elementów Streamlit */
+    div[data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        width: 100% !important;
+        gap: 6px !important;
+        min-width: 0 !important;
+    }
+
+    div[data-testid="column"] {
+        width: 50% !important;
+        min-width: 0 !important;
+        flex: 1 1 50% !important;
+    }
+
+    div[data-testid="stWidgetLabel"] {
+        min-height: auto !important;
+    }
+
+    div[data-testid="stWidgetLabel"] p {
+        font-size: 0.85rem !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+
+    /* Redukcja paddingu wewnątrz selectboxów */
+    div[data-baseweb="select"] {
+        border-radius: 12px !important;
+        min-width: 0 !important;
+    }
+
+    div[data-baseweb="select"] > div {
+        padding-left: 6px !important;
+        padding-right: 6px !important;
+        min-width: 0 !important;
+    }
+
+    /* Nagłówek QuizNuta */
     .app-header {
         display: flex;
         align-items: center;
@@ -51,7 +89,6 @@ st.markdown("""
         font-size: 20px;
         box-shadow: 0 4px 12px rgba(255, 0, 122, 0.4);
     }
-    
     .app-title-wrapper {
         display: flex;
         flex-direction: column;
@@ -71,7 +108,6 @@ st.markdown("""
         margin-top: 2px;
         line-height: 1;
     }
-
     .badge-live {
         background-color: rgba(45, 198, 83, 0.15);
         color: #2dc653;
@@ -92,33 +128,7 @@ st.markdown("""
         border-radius: 50%;
     }
 
-    /* FORSOWANIE 2 KOLUMN W JEDNYM WIERSZU NA MOBILKACH */
-    div[data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        gap: 8px !important;
-        width: 100% !important;
-    }
-    div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-        width: 50% !important;
-        min-width: 0 !important;
-        flex: 1 1 50% !important;
-    }
-
-    /* Odchudzenie marginesów i paddingów selectboxów dla idealnego dopasowania */
-    div[data-testid="stSelectbox"] {
-        width: 100% !important;
-    }
-    div[data-baseweb="select"] {
-        border-radius: 12px !important;
-    }
-    div[data-baseweb="select"] > div {
-        padding-left: 8px !important;
-        padding-right: 8px !important;
-    }
-
-    /* Kafelki ze statystykami */
+    /* Kafelki statystyk */
     .stats-container {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -167,7 +177,6 @@ st.markdown("""
         font-size: 14px;
     }
 
-    /* Sekcja audio */
     audio {
         width: 100% !important;
         height: 45px !important;
@@ -175,7 +184,6 @@ st.markdown("""
         margin-top: 4px;
     }
 
-    /* Baner z informacją o odpowiedzi */
     .feedback-box {
         background-color: #121622;
         border: 1px solid #1e2436;
@@ -195,17 +203,7 @@ st.markdown("""
         border-color: #ff3366;
         background-color: rgba(255, 51, 102, 0.08);
     }
-    .feedback-icon {
-        font-size: 22px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    .feedback-text {
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-    }
+    .feedback-icon { font-size: 22px; }
     .feedback-main {
         font-size: 1rem;
         font-weight: 700;
@@ -216,10 +214,8 @@ st.markdown("""
         font-size: 0.82rem;
         color: #a0a5b5;
         margin-top: 2px;
-        line-height: 1.2;
     }
 
-    /* Stylizacja przycisku głównego */
     .stButton > button {
         width: 100% !important;
         background: linear-gradient(90deg, #ff007a, #7b2cbf) !important;
@@ -230,16 +226,11 @@ st.markdown("""
         font-size: 1rem !important;
         font-weight: 700 !important;
         box-shadow: 0 4px 15px rgba(255, 0, 122, 0.3) !important;
-        transition: all 0.2s ease !important;
-    }
-    .stButton > button:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 6px 20px rgba(255, 0, 122, 0.5) !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# Inicjalizacja stanu aplikacji
+# Inicjalizacja stanu
 if "full_playlist" not in st.session_state:
     st.session_state.full_playlist = []
 if "songs_pool" not in st.session_state:
@@ -285,7 +276,6 @@ def fetch_deezer_playlist(playlist_id):
         response = requests.get(api_url, timeout=10)
         if response.status_code != 200:
             return []
-
         data = response.json()
         if "error" in data:
             return []
@@ -301,7 +291,6 @@ def fetch_deezer_playlist(playlist_id):
                     "artist": track.get("artist", {}).get("name", "Unknown"),
                     "preview_url": preview_url
                 })
-
         return songs
     except Exception:
         return []
@@ -315,14 +304,12 @@ def prepare_options(songs, raw_mode):
             options.add(s["artist"])
         else:
             options.add(f'{s["artist"]} - {s["title"]}')
-    
     return sorted(list(options))
 
 def draw_next_song():
     if not st.session_state.songs_pool:
         st.session_state.current_song = None
         return
-    
     song = random.choice(st.session_state.songs_pool)
     st.session_state.songs_pool.remove(song)
     st.session_state.current_song = song
@@ -330,7 +317,7 @@ def draw_next_song():
     st.session_state.last_correct = False
     st.session_state.audio_id += 1
 
-# Nagłówek aplikacji
+# Nagłówek
 st.markdown("""
     <div class="app-header">
         <div class="app-title-container">
@@ -344,37 +331,32 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# Lista trybów z ikonami
+# Opcje trybów
 mode_options = [
     "👤 Wykonawca",
     "🎵 Tytuł",
     "🔀 Wykonawca i Tytuł"
 ]
 
-# Sekcja opcji: Playlista i Tryb w 2 kolumnach obok siebie
-col1, col2 = st.columns(2)
-
+# Pobranie playlist
 predefined = load_predefined_playlists()
 playlist_id_to_load = None
+
+# Układ 2 kolumn bez przekraczania szerokości ekranu
+col1, col2 = st.columns(2)
 
 with col1:
     if predefined:
         options_map = {p["name"]: str(p["id"]) for p in predefined if "name" in p and "id" in p}
-        options_map["-- Inny link --"] = "custom"
-        
+        options_map["-- Inny --"] = "custom"
         selected_name = st.selectbox("🎛️ Playlista", options=list(options_map.keys()))
-        
         if options_map[selected_name] != "custom":
             playlist_id_to_load = options_map[selected_name]
 
 with col2:
-    selected_mode_full = st.selectbox(
-        "🎯 Tryb", 
-        options=mode_options, 
-        index=0
-    )
+    selected_mode_full = st.selectbox("🎯 Tryb", options=mode_options, index=0)
 
-# Wyciągnięcie nazwy trybu
+# Określenie wybranego trybu
 if "Wykonawca i Tytuł" in selected_mode_full:
     clean_mode = "Wykonawca i Tytuł"
 elif "Tytuł" in selected_mode_full:
@@ -383,19 +365,18 @@ else:
     clean_mode = "Wykonawca"
 
 if not playlist_id_to_load:
-    custom_input = st.text_input("Wklej link do playlisty Deezer:", placeholder="https://www.deezer.com/pl/playlist/908622995")
+    custom_input = st.text_input("Link Deezer:", placeholder="https://www.deezer.com/pl/playlist/908622995")
     if custom_input:
         playlist_id_to_load = extract_playlist_id(custom_input)
 
-# Aktualizacja opcji odpowiedzi przy zmianie trybu w trakcie gry
 if st.session_state.full_playlist:
     st.session_state.options_list = prepare_options(st.session_state.full_playlist, clean_mode)
 
-# Przycisk startowy (jeśli gra nie trwa)
+# Przycisk startu
 if not st.session_state.current_song and st.session_state.total == 0:
     if st.button("Pobierz playlistę i rozpocznij grę"):
         if playlist_id_to_load:
-            with st.spinner("Ładowanie piosenek..."):
+            with st.spinner("Ładowanie..."):
                 fetched_songs = fetch_deezer_playlist(playlist_id_to_load)
                 if fetched_songs:
                     st.session_state.full_playlist = fetched_songs.copy()
@@ -407,17 +388,16 @@ if not st.session_state.current_song and st.session_state.total == 0:
                     draw_next_song()
                     st.rerun()
                 else:
-                    st.error("Błąd podczas pobierania playlisty.")
+                    st.error("Błąd pobierania.")
         else:
-            st.warning("Wybierz playlistę z listy.")
+            st.warning("Wybierz playlistę.")
 
-# Panel Gry
+# Widok gry
 if st.session_state.current_song:
     song = st.session_state.current_song
     remaining_count = len(st.session_state.songs_pool) + 1
     accuracy = int((st.session_state.score / st.session_state.total * 100)) if st.session_state.total > 0 else 0
 
-    # Kafelki statystyk
     st.markdown(f"""
         <div class="stats-container">
             <div class="stat-card">
@@ -437,20 +417,17 @@ if st.session_state.current_song:
         </div>
     """, unsafe_allow_html=True)
 
-    # Odtwarzacz audio
     st.audio(song["preview_url"])
 
-    # Odpowiedź - Domyślna opcja "Nie mam pojęcia :-)"
     default_option = "Nie mam pojęcia :-)"
     selectable_options = [default_option] + st.session_state.options_list
     
     user_choice = st.selectbox(
-        "Wybierz odpowiedź z listy:", 
+        "Wybierz odpowiedź:", 
         options=selectable_options, 
         key=f"q_select_{st.session_state.audio_id}"
     )
 
-    # Przycisk "Sprawdź" lub "Następne pytanie"
     if not st.session_state.answered:
         if st.button("Sprawdź odpowiedź 🎯"):
             st.session_state.total += 1
@@ -465,28 +442,21 @@ if st.session_state.current_song:
                 elif clean_mode == "Wykonawca i Tytuł" and user_choice == f'{song["artist"]} - {song["title"]}':
                     correct = True
 
+            st.session_state.last_correct = correct
             if correct:
                 st.session_state.score += 1
-                st.session_state.last_correct = True
                 st.balloons()
-            else:
-                st.session_state.last_correct = False
-            
             st.rerun()
     else:
-        # Konfiguracja ikony oraz baneru
         box_class = "correct" if st.session_state.last_correct else "wrong"
         icon = "🎯" if st.session_state.last_correct else "❌"
 
         if clean_mode == "Wykonawca":
-            main_text = song['artist']
-            sub_text = song['title']
+            main_text, sub_text = song['artist'], song['title']
         elif clean_mode == "Tytuł":
-            main_text = song['title']
-            sub_text = song['artist']
-        else: # "Wykonawca i Tytuł"
-            main_text = f"{song['artist']} - {song['title']}"
-            sub_text = ""
+            main_text, sub_text = song['title'], song['artist']
+        else:
+            main_text, sub_text = f"{song['artist']} - {song['title']}", ""
 
         sub_html = f'<div class="feedback-sub">{sub_text}</div>' if sub_text else ''
 
