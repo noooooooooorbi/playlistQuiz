@@ -273,7 +273,6 @@ def fetch_deezer_playlist_v3(playlist_ids_str):
     all_songs = []
     missing_songs = []
     
-    # Podział na wypadek przekazania kilku ID po przecinku
     ids = [p_id.strip() for p_id in str(playlist_ids_str).split(",") if p_id.strip()]
     
     for playlist_id in ids:
@@ -293,17 +292,21 @@ def fetch_deezer_playlist_v3(playlist_ids_str):
                     title = track.get("title", "Unknown")
                     artist = track.get("artist", {}).get("name", "Unknown")
                     
-                    # -------------------------------------------------------------
-                    # POPRZEDNIA WERSJA (Zakomentowana):
-                    # if preview and isinstance(preview, str) and preview.startswith("http"):
-                    #     all_songs.append({
-                    #         "title": title,
-                    #         "artist": artist,
-                    #         "preview_url": preview
-                    #     })
-                    # -------------------------------------------------------------
+                    # Jeśli brak próbki, szukamy alternatywnej wersji utworu w API
+                    if not (preview and isinstance(preview, str) and preview.startswith("http")):
+                        try:
+                            search_url = f"https://api.deezer.com/search?q=artist:\"{artist}\" track:\"{title}\""
+                            s_res = requests.get(search_url, timeout=5).json()
+                            if "data" in s_res and len(s_res["data"]) > 0:
+                                for alt_track in s_res["data"]:
+                                    alt_preview = alt_track.get("preview")
+                                    if alt_preview and alt_preview.startswith("http"):
+                                        preview = alt_preview
+                                        break
+                        except Exception:
+                            pass
 
-                    # POPRAWIONA WERSJA z rejestrowaniem piosenek bez audio:
+                    # Jeśli znaleziono oryginalne lub alternatywne preview
                     if preview and isinstance(preview, str) and preview.startswith("http"):
                         all_songs.append({
                             "title": title,
