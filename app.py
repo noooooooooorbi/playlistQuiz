@@ -10,7 +10,7 @@ st.set_page_config(page_title="QuizNuta", page_icon="🎵", layout="centered")
 TEMP_DIR = "temp_audio"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
-# CSS – czysty interfejs i idealne pozycjonowanie popovera w karcie
+# CSS – czysty interfejs
 st.markdown("""
     <style>
     header[data-testid="stHeader"], footer, [data-testid="sidebar"], [data-testid="collapsedControl"] {
@@ -144,7 +144,7 @@ st.markdown("""
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 10px;
-        margin-bottom: 0px;
+        margin-bottom: 12px;
     }
     .stat-card {
         background-color: #121622;
@@ -188,41 +188,6 @@ st.markdown("""
         justify-content: center;
         font-size: 13px;
         color: #7b839b;
-    }
-
-    /* Precyzyjne wsunięcie popovera w prawą kartę POZOSTAŁO */
-    .popover-overlay {
-        margin-top: -58px !important;
-        margin-bottom: 16px !important;
-        display: flex !important;
-        justify-content: flex-end !important;
-        padding-right: 10px !important;
-        pointer-events: none;
-    }
-    .popover-overlay div[data-testid="stPopover"] {
-        pointer-events: auto;
-    }
-    .popover-overlay div[data-testid="stPopover"] > button {
-        width: 30px !important;
-        height: 30px !important;
-        min-height: 30px !important;
-        padding: 0 !important;
-        background-color: #1a2030 !important;
-        border: 1px solid #2a324b !important;
-        border-radius: 8px !important;
-        color: #a0a5b5 !important;
-        font-size: 12px !important;
-        font-weight: bold !important;
-        box-shadow: none !important;
-    }
-    .popover-overlay div[data-testid="stPopover"] > button:hover {
-        background-color: #252e46 !important;
-        color: #ffffff !important;
-        border-color: #ff007a !important;
-    }
-    /* Ukrywanie strzałki rozwijania z domyślnego popovera streamlit */
-    .popover-overlay div[data-testid="stPopover"] button svg {
-        display: none !important;
     }
 
     .feedback-box {
@@ -277,8 +242,6 @@ if "audio_id" not in st.session_state:
     st.session_state.audio_id = 0
 if "current_playlist_id" not in st.session_state:
     st.session_state.current_playlist_id = None
-if "missing_tracks" not in st.session_state:
-    st.session_state.missing_tracks = []
 
 def load_predefined_playlists():
     if os.path.exists("playlists.json"):
@@ -303,7 +266,6 @@ def extract_playlist_id(url):
 @st.cache_data(ttl=60)
 def fetch_deezer_playlist_v3(playlist_ids_str):
     all_songs = []
-    missing_songs = []
     
     ids = [p_id.strip() for p_id in str(playlist_ids_str).split(",") if p_id.strip()]
     
@@ -330,14 +292,12 @@ def fetch_deezer_playlist_v3(playlist_ids_str):
                             "artist": artist,
                             "preview_url": preview
                         })
-                    else:
-                        missing_songs.append(f"{artist} - {title}")
                 
                 url = data.get("next")
             except Exception:
                 break
                 
-    return all_songs, missing_songs
+    return all_songs
 
 def prepare_options(songs, raw_mode):
     options = set()
@@ -363,13 +323,12 @@ def draw_next_song():
 
 def start_new_game(playlist_id, mode):
     with st.spinner("Pobieranie pełnej playlisty..."):
-        fetched_songs, missing = fetch_deezer_playlist_v3(playlist_id)
+        fetched_songs = fetch_deezer_playlist_v3(playlist_id)
         if fetched_songs:
             st.session_state.current_playlist_id = playlist_id
             st.session_state.full_playlist = fetched_songs.copy()
             st.session_state.songs_pool = fetched_songs.copy()
             st.session_state.options_list = prepare_options(fetched_songs, mode)
-            st.session_state.missing_tracks = missing
             st.session_state.score = 0
             st.session_state.total = 0
             st.session_state.audio_id = 0
@@ -448,7 +407,7 @@ if st.session_state.current_song:
     remaining_count = len(st.session_state.songs_pool) + 1
     accuracy = int((st.session_state.score / st.session_state.total * 100)) if st.session_state.total > 0 else 0
 
-    # Karty statystyk
+    # Czyste karty statystyk bez ikonek informacyjnych
     st.markdown(f"""
         <div class="stats-container">
             <div class="stat-card">
@@ -466,18 +425,6 @@ if st.session_state.current_song:
             </div>
         </div>
     """, unsafe_allow_html=True)
-
-    # Popover Streamlit wsunięty dokładnie w prawą kartę
-    st.markdown('<div class="popover-overlay">', unsafe_allow_html=True)
-    with st.popover("i"):
-        st.markdown("### ℹ️ Utwory bez próbki audio")
-        if st.session_state.missing_tracks:
-            st.caption(f"Lista {len(st.session_state.missing_tracks)} utworów pominiętych z powodu braku próbki dźwiękowej w Deezer API:")
-            for item in st.session_state.missing_tracks:
-                st.markdown(f"• {item}")
-        else:
-            st.success("Wszystkie utwory z tej playlisty posiadają próbkę audio! 🎉")
-    st.markdown('</div>', unsafe_allow_html=True)
 
     if song.get("preview_url"):
         audio_html = f"""
