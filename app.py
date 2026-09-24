@@ -10,7 +10,7 @@ st.set_page_config(page_title="QuizNuta", page_icon="🎵", layout="centered")
 TEMP_DIR = "temp_audio"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
-# CSS: Nowoczesny interfejs QuizNuta + obsługa układu mobilnego
+# CSS: Nowoczesny interfejs QuizNuta + rygorystyczne wymuszenie kolumn w jednym wierszu
 st.markdown("""
     <style>
     /* Ukrywamy domyślne paski i sidebar Streamlita */
@@ -52,7 +52,6 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(255, 0, 122, 0.4);
     }
     
-    /* Wyrównanie "by Norbbs" pod prawą częścią tytułu */
     .app-title-wrapper {
         display: flex;
         flex-direction: column;
@@ -93,17 +92,30 @@ st.markdown("""
         border-radius: 50%;
     }
 
-    /* Wymuszenie 2 kolumn obok siebie na telefonach dla Playlisty i Trybu */
-    [data-testid="stHorizontalBlock"] {
+    /* FORSOWANIE 2 KOLUMN W JEDNYM WIERSZU NA MOBILKACH */
+    div[data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
+        flex-wrap: nowrap !important;
         gap: 8px !important;
         width: 100% !important;
     }
-    [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+    div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
         width: 50% !important;
-        flex: 1 1 50% !important;
         min-width: 0 !important;
+        flex: 1 1 50% !important;
+    }
+
+    /* Odchudzenie marginesów i paddingów selectboxów dla idealnego dopasowania */
+    div[data-testid="stSelectbox"] {
+        width: 100% !important;
+    }
+    div[data-baseweb="select"] {
+        border-radius: 12px !important;
+    }
+    div[data-baseweb="select"] > div {
+        padding-left: 8px !important;
+        padding-right: 8px !important;
     }
 
     /* Kafelki ze statystykami */
@@ -224,18 +236,6 @@ st.markdown("""
         transform: translateY(-1px);
         box-shadow: 0 6px 20px rgba(255, 0, 122, 0.5) !important;
     }
-
-    /* Dopasowanie pól wyboru */
-    div[data-baseweb="select"] {
-        border-radius: 12px !important;
-    }
-
-    /* Optymalizacja szerokości napisów na małych ekranach */
-    @media (max-width: 600px) {
-        .mode-select-box option {
-            font-size: 14px;
-        }
-    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -344,14 +344,14 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# Mapowanie opcji trybu z ikona + nazwa
+# Lista trybów z ikonami
 mode_options = [
     "👤 Wykonawca",
     "🎵 Tytuł",
     "🔀 Wykonawca i Tytuł"
 ]
 
-# Sekcja opcji: Playlista i Tryb gry zawsze w 2 kolumnach obok siebie
+# Sekcja opcji: Playlista i Tryb w 2 kolumnach obok siebie
 col1, col2 = st.columns(2)
 
 predefined = load_predefined_playlists()
@@ -360,21 +360,21 @@ playlist_id_to_load = None
 with col1:
     if predefined:
         options_map = {p["name"]: str(p["id"]) for p in predefined if "name" in p and "id" in p}
-        options_map["-- Wklej własny link / ID --"] = "custom"
+        options_map["-- Inny link --"] = "custom"
         
-        selected_name = st.selectbox("🎛️ Playlista:", options=list(options_map.keys()))
+        selected_name = st.selectbox("🎛️ Playlista", options=list(options_map.keys()))
         
         if options_map[selected_name] != "custom":
             playlist_id_to_load = options_map[selected_name]
 
 with col2:
     selected_mode_full = st.selectbox(
-        "🎯 Tryb gry:", 
+        "🎯 Tryb", 
         options=mode_options, 
         index=0
     )
 
-# Wyciągnięcie czystej nazwy trybu
+# Wyciągnięcie nazwy trybu
 if "Wykonawca i Tytuł" in selected_mode_full:
     clean_mode = "Wykonawca i Tytuł"
 elif "Tytuł" in selected_mode_full:
@@ -387,7 +387,7 @@ if not playlist_id_to_load:
     if custom_input:
         playlist_id_to_load = extract_playlist_id(custom_input)
 
-# Dynamiczna aktualizacja listy opcji odpowiedzi podczas gry przy zmianie trybu
+# Aktualizacja opcji odpowiedzi przy zmianie trybu w trakcie gry
 if st.session_state.full_playlist:
     st.session_state.options_list = prepare_options(st.session_state.full_playlist, clean_mode)
 
@@ -417,7 +417,7 @@ if st.session_state.current_song:
     remaining_count = len(st.session_state.songs_pool) + 1
     accuracy = int((st.session_state.score / st.session_state.total * 100)) if st.session_state.total > 0 else 0
 
-    # Kafelki statystyk (Wynik i Pozostało)
+    # Kafelki statystyk
     st.markdown(f"""
         <div class="stats-container">
             <div class="stat-card">
@@ -474,7 +474,7 @@ if st.session_state.current_song:
             
             st.rerun()
     else:
-        # Konfiguracja ikony oraz baneru z rozróżnieniem rozmiaru czcionek wg trybu
+        # Konfiguracja ikony oraz baneru
         box_class = "correct" if st.session_state.last_correct else "wrong"
         icon = "🎯" if st.session_state.last_correct else "❌"
 
