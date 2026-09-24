@@ -3,31 +3,11 @@ import json
 import random
 import requests
 import streamlit as st
-from streamlit_javascript import st_javascript
 
 st.set_page_config(page_title="QuizNuta", page_icon="🎵", layout="centered")
 
 TEMP_DIR = "temp_audio"
 os.makedirs(TEMP_DIR, exist_ok=True)
-
-# Funkcje pomocnicze do Zapisu / Odczytu z LocalStorage przeglądarki
-def save_game_to_local_storage():
-    state_data = {
-        "full_playlist": st.session_state.full_playlist,
-        "songs_pool": st.session_state.songs_pool,
-        "options_list": st.session_state.options_list,
-        "current_song": st.session_state.current_song,
-        "score": st.session_state.score,
-        "total": st.session_state.total,
-        "answered": st.session_state.answered,
-        "last_correct": st.session_state.last_correct,
-        "audio_id": st.session_state.audio_id
-    }
-    json_str = json.dumps(state_data).replace("'", "\\'").replace('"', '\\"')
-    st_javascript(f"localStorage.setItem('quiznuta_state', '{json_str}');")
-
-def clear_local_storage():
-    st_javascript("localStorage.removeItem('quiznuta_state');")
 
 # CSS z precyzyjnymi wartościami marginesów
 st.markdown("""
@@ -244,7 +224,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Domyślna inicjalizacja stanu
+# Inicjalizacja stanu
 if "full_playlist" not in st.session_state:
     st.session_state.full_playlist = []
 if "songs_pool" not in st.session_state:
@@ -263,29 +243,6 @@ if "last_correct" not in st.session_state:
     st.session_state.last_correct = False
 if "audio_id" not in st.session_state:
     st.session_state.audio_id = 0
-if "restored" not in st.session_state:
-    st.session_state.restored = False
-
-# Próba odzyskania stanu z przeglądarki przy pierwszym wejściu
-if not st.session_state.restored:
-    saved_state = st_javascript("localStorage.getItem('quiznuta_state');")
-    if saved_state and isinstance(saved_state, str):
-        try:
-            data = json.loads(saved_state)
-            st.session_state.full_playlist = data.get("full_playlist", [])
-            st.session_state.songs_pool = data.get("songs_pool", [])
-            st.session_state.options_list = data.get("options_list", [])
-            st.session_state.current_song = data.get("current_song", None)
-            st.session_state.score = data.get("score", 0)
-            st.session_state.total = data.get("total", 0)
-            st.session_state.answered = data.get("answered", False)
-            st.session_state.last_correct = data.get("last_correct", False)
-            st.session_state.audio_id = data.get("audio_id", 0)
-            st.session_state.restored = True
-            st.rerun()
-        except Exception:
-            pass
-    st.session_state.restored = True
 
 def load_predefined_playlists():
     if os.path.exists("playlists.json"):
@@ -347,7 +304,6 @@ def prepare_options(songs, raw_mode):
 def draw_next_song():
     if not st.session_state.songs_pool:
         st.session_state.current_song = None
-        save_game_to_local_storage()
         return
     song = random.choice(st.session_state.songs_pool)
     st.session_state.songs_pool.remove(song)
@@ -355,7 +311,6 @@ def draw_next_song():
     st.session_state.answered = False
     st.session_state.last_correct = False
     st.session_state.audio_id += 1
-    save_game_to_local_storage()
 
 # Nagłówek
 st.markdown("""
@@ -423,7 +378,7 @@ if not st.session_state.current_song and st.session_state.total == 0:
                     draw_next_song()
                     st.rerun()
                 else:
-                    st.error("Błąd pobierania.")
+                    st.error("Błąd pobierania. Sprawdź czy playlista jest publiczna.")
         else:
             st.warning("Wybierz playlistę.")
 
@@ -451,7 +406,11 @@ if st.session_state.current_song:
         </div>
     """, unsafe_allow_html=True)
 
-    st.audio(song["preview_url"])
+    # Ładowanie utworu audio
+    if song.get("preview_url"):
+        st.audio(song["preview_url"])
+    else:
+        st.warning("Brak pliku audio dla tej piosenki.")
 
     default_option = "Nie mam pojęcia :-)"
     selectable_options = [default_option] + st.session_state.options_list
@@ -481,7 +440,6 @@ if st.session_state.current_song:
                 st.session_state.score += 1
                 st.balloons()
             
-            save_game_to_local_storage()
             st.rerun()
     else:
         box_class = "correct" if st.session_state.last_correct else "wrong"
@@ -522,5 +480,4 @@ elif st.session_state.total > 0 and not st.session_state.songs_pool:
     if st.button("Zagraj ponownie"):
         st.session_state.total = 0
         st.session_state.current_song = None
-        clear_local_storage()
         st.rerun()
