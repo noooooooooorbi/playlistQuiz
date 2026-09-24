@@ -270,10 +270,11 @@ def extract_playlist_id(url):
 def fetch_deezer_playlist(playlist_id):
     songs = []
     index = 0
-    limit = 100  # Pobieramy po 100 utworów w jednej paczce
+    limit = 100
+    total_tracks = None
 
     while True:
-        # Paginacja za pomocą index i limit
+        # Oficjalny endpoint z jawnym indeksem i limitami
         api_url = f"https://api.deezer.com/playlist/{playlist_id}/tracks?index={index}&limit={limit}"
         try:
             response = requests.get(api_url, timeout=10)
@@ -284,13 +285,17 @@ def fetch_deezer_playlist(playlist_id):
             if "error" in data or "data" not in data:
                 break
 
+            # Odczytujemy łączną liczbę utworów z API Deezera
+            if total_tracks is None:
+                total_tracks = data.get("total", 0)
+
             tracks = data.get("data", [])
             if not tracks:
                 break
 
             for track in tracks:
                 preview_url = track.get("preview")
-                # Sprawdzamy czy utwór posiada aktywną próbkę audio MP3
+                # Filtrowanie aktywnych próbek audio
                 if preview_url and isinstance(preview_url, str) and preview_url.startswith("http"):
                     songs.append({
                         "title": track.get("title", "Unknown"),
@@ -298,11 +303,13 @@ def fetch_deezer_playlist(playlist_id):
                         "preview_url": preview_url
                     })
 
-            # Jeśli pobrano mniej utworów niż limit, oznacza to koniec playlisty
-            if len(tracks) < limit:
+            # Zwiększamy indeks do kolejnej paczki
+            index += len(tracks)
+
+            # Warunek stopu: pobraliśmy już wszystkie utwory z listy lub brak kolejnych danych
+            if (total_tracks and index >= total_tracks) or len(tracks) == 0:
                 break
 
-            index += limit  # Przechodzimy do kolejnej paczki (100, 200, 300, ...)
         except Exception:
             break
 
