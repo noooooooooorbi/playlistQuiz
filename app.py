@@ -282,7 +282,7 @@ def fetch_deezer_playlist_v3(playlist_id):
                 break
 
             
-"""            for track in data["data"]:
+            for track in data["data"]:
                 preview = track.get("preview")
                 if preview and isinstance(preview, str) and preview.startswith("http"):
                     songs.append({
@@ -290,21 +290,7 @@ def fetch_deezer_playlist_v3(playlist_id):
                         "artist": track.get("artist", {}).get("name", "Unknown"),
                         "preview_url": preview
                     })
-"""
-            for track in data["data"]:
-                preview = track.get("preview")
-                title = track.get("title", "Unknown")
-                artist = track.get("artist", {}).get("name", "Unknown")
-                
-                if preview and isinstance(preview, str) and preview.startswith("http"):
-                    all_songs.append({
-                        "title": title,
-                        "artist": artist,
-                        "preview_url": preview
-                    })
-                else:
-                    # Ten print pokaże w terminalu, które piosenki nie mają dźwięku:
-                    print(f"❌ BRAK MP3: {artist} - {title}")
+         
             
             # Pobieramy link do kolejnej strony wyników (jeśli istnieje)
             url = data.get("next")
