@@ -266,7 +266,7 @@ def extract_playlist_id(url):
             return part
     return url
 
-@st.cache_data(ttl=86400)
+@st.cache_data(ttl=3600)  # Zmniejszono cache do 1h (aby szybciej reagować na poprawki)
 def fetch_deezer_playlist(playlist_id):
     api_url = f"https://api.deezer.com/playlist/{playlist_id}"
     try:
@@ -282,7 +282,8 @@ def fetch_deezer_playlist(playlist_id):
 
         for track in tracks:
             preview_url = track.get("preview")
-            if preview_url and isinstance(preview_url, str) and preview_url.startswith("http"):
+            # Dodatkowy warunek: dodajemy piosenkę TYLKO wtedy, gdy ma prawidłowy link MP3
+            if preview_url and isinstance(preview_url, str) and preview_url.startswith("http") and len(preview_url) > 10:
                 songs.append({
                     "title": track.get("title", "Unknown"),
                     "artist": track.get("artist", {}).get("name", "Unknown"),
