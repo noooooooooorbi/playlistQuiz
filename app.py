@@ -3,6 +3,7 @@ import json
 import random
 import requests
 import streamlit as st
+import streamlit.components.v1 as components
 
 st.set_page_config(page_title="QuizNuta", page_icon="🎵", layout="centered")
 
@@ -186,13 +187,6 @@ st.markdown("""
         font-size: 14px;
     }
 
-    audio {
-        width: 100% !important;
-        height: 45px !important;
-        border-radius: 12px;
-        margin-top: 4px;
-    }
-
     .feedback-box {
         background-color: #121622;
         border: 1px solid #1e2436;
@@ -247,8 +241,6 @@ if "current_playlist_id" not in st.session_state:
     st.session_state.current_playlist_id = None
 if "missing_tracks" not in st.session_state:
     st.session_state.missing_tracks = []
-if "trigger_focus_reset" not in st.session_state:
-    st.session_state.trigger_focus_reset = 0
 
 def load_predefined_playlists():
     if os.path.exists("playlists.json"):
@@ -330,7 +322,6 @@ def draw_next_song():
     st.session_state.answered = False
     st.session_state.last_correct = False
     st.session_state.audio_id += 1
-    st.session_state.trigger_focus_reset += 1
 
 def start_new_game(playlist_id, mode):
     with st.spinner("Pobieranie pełnej playlisty..."):
@@ -349,9 +340,6 @@ def start_new_game(playlist_id, mode):
         else:
             st.error("Błąd pobierania playlisty. Sprawdź czy jest publiczna.")
             return False
-
-def on_select_change():
-    st.session_state.trigger_focus_reset += 1
 
 # Nagłówek
 st.markdown("""
@@ -442,7 +430,28 @@ if st.session_state.current_song:
     """, unsafe_allow_html=True)
 
     if song.get("preview_url"):
-        st.audio(song["preview_url"])
+        # Odtwarzacz HTML z automatycznym zdjęciem fokusu ze st.selectbox i przeniesieniem go na odtwarzacz
+        audio_html = f"""
+            <audio id="audio_player_{st.session_state.audio_id}" controls style="width: 100%; height: 45px; border-radius: 12px; outline: none;">
+                <source src="{song['preview_url']}" type="audio/mpeg">
+                Twoja przeglądarka nie wspiera odtwarzacza audio.
+            </audio>
+            <script>
+                (function() {{
+                    var player = document.getElementById('audio_player_{st.session_state.audio_id}');
+                    if (player) {{
+                        player.focus();
+                    }}
+                    if (window.parent && window.parent.document) {{
+                        var activeEl = window.parent.document.activeElement;
+                        if (activeEl && activeEl.tagName === 'INPUT') {{
+                            activeEl.blur();
+                        }}
+                    }}
+                }})();
+            </script>
+        """
+        components.html(audio_html, height=55)
     else:
         st.warning("Brak pliku audio dla tej piosenki.")
 
@@ -452,31 +461,8 @@ if st.session_state.current_song:
     user_choice = st.selectbox(
         "Wybierz odpowiedź z listy:", 
         options=selectable_options, 
-        key=f"q_select_{st.session_state.audio_id}",
-        on_change=on_select_change
+        key=f"q_select_{st.session_state.audio_id}"
     )
-
-    # Ulepszony JS – wymusza zdejmujący blur i skupienie na audio z ciągłym próbkowaniem
-    st.components.v1.html(f"""
-        <script>
-            function shiftFocusToAudio() {{
-                var parentDoc = window.parent.document;
-                var active = parentDoc.activeElement;
-                if (active) {{
-                    active.blur();
-                }}
-                var audioElem = parentDoc.querySelector('audio');
-                if (audioElem) {{
-                    audioElem.focus();
-                }}
-            }}
-            
-            // Wykonaj od razu oraz po krótkiej chwili, gdy Streamlit zakończy renderowanie
-            shiftFocusToAudio();
-            setTimeout(shiftFocusToAudio, 150);
-            setTimeout(shiftFocusToAudio, 350);
-        </script>
-    """, height=0, key=f"focus_script_{st.session_state.trigger_focus_reset}")
 
     if not st.session_state.answered:
         if st.button("Sprawdź odpowiedź 🎯"):
