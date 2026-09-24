@@ -9,97 +9,78 @@ st.set_page_config(page_title="QuizNuta", page_icon="🎵", layout="centered")
 TEMP_DIR = "temp_audio"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
-# CSS z responsywnością (Media Queries dla Desktop i Mobile)
+# CSS z pełnym rozdzieleniem układu Desktop i Mobile
 st.markdown("""
     <style>
-    /* Reset paska nagłówka i stopki */
+    /* Reset paska nagłówka, stopki i paska bocznego */
     header[data-testid="stHeader"], footer, [data-testid="stSidebar"], [data-testid="collapsedControl"] {
         display: none !important;
     }
 
-    /* Zapobieganie przewijaniu poziomemu */
-    html, body, [data-testid="stAppViewContainer"], .main {
+    /* Ścisła blokada przewijania w poziomie na wszystkich poziomach */
+    html, body, [data-testid="stAppViewContainer"], .main, .block-container {
         overflow-x: hidden !important;
         max-width: 100vw !important;
     }
 
     /* Główny kontener aplikacji */
     .block-container {
-        padding-top: 1.2rem !important;
-        padding-bottom: 1rem !important;
-        padding-left: 0.8rem !important;
-        padding-right: 0.8rem !important;
-        max-width: 500px !important;
+        padding: 1rem 0.8rem !important;
+        max-width: 480px !important;
         margin: 0 auto !important;
     }
 
-    /* ZACHOWANIE 1 WIERSZA NA KAŻDYM EKRANIE */
-    [data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        gap: 8px !important;
-        width: 100% !important;
-        align-items: flex-end !important;
+    /* RWD: Przełączanie sekcji Mobile / Desktop */
+    .desktop-only { display: block; }
+    .mobile-only { display: none; }
+
+    @media (max-width: 600px) {
+        .desktop-only { display: none !important; }
+        .mobile-only { display: block !important; }
     }
 
-    /* Pierwsza kolumna (80%) */
-    [data-testid="column"]:nth-child(1) {
-        flex: 4 1 80% !important;
-        width: 80% !important;
-        min-width: 0 !important;
+    /* Etykieta trybu gry na mobile */
+    .mode-label {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #ffffff;
+        margin-top: 10px;
+        margin-bottom: 6px;
     }
 
-    /* Druga kolumna (20%) */
-    [data-testid="column"]:nth-child(2) {
-        flex: 1 1 20% !important;
-        width: 20% !important;
-        min-width: 0 !important;
+    /* Przyciski trybu w wersji mobilnej */
+    .mobile-only .stButton > button {
+        padding: 8px 4px !important;
+        font-size: 0.82rem !important;
+        border-radius: 10px !important;
+        box-shadow: none !important;
+        height: auto !important;
+        min-height: 38px !important;
     }
 
-    /* Etykiety i pola wybieralne */
-    div[data-testid="stWidgetLabel"] p {
-        font-size: 0.85rem !important;
-        font-weight: 600 !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
+    /* Nieaktywny przycisk na mobile */
+    .mobile-only button[kind="secondary"] {
+        background: #121622 !important;
+        color: #a0a5b5 !important;
+        border: 1px solid #1e2436 !important;
     }
 
+    /* Aktywny przycisk na mobile */
+    .mobile-only button[kind="primary"] {
+        background: linear-gradient(90deg, #ff007a, #7b2cbf) !important;
+        color: #ffffff !important;
+        border: none !important;
+    }
+
+    /* Wygładzenie selektorów */
     div[data-baseweb="select"] {
         border-radius: 12px !important;
         width: 100% !important;
-        min-width: 0 !important;
     }
 
-    /* MIKRO-STYLIZACJA DLA DRUGIEJ KOLUMNY NA MOBILE (< 600px) */
-    @media (max-width: 600px) {
-        /* Ukrywamy etykietę nad drugim selektorem (zostawiamy samą w pierwszej kolumnie) */
-        [data-testid="column"]:nth-child(2) div[data-testid="stWidgetLabel"] {
-            display: none !important;
-        }
-
-        /* Zmniejszamy wewnętrzne marginesy pola, by zmieścić ikonkę */
-        [data-testid="column"]:nth-child(2) div[data-baseweb="select"] > div {
-            padding-left: 6px !important;
-            padding-right: 4px !important;
-            justify-content: center !important;
-        }
-
-        /* Ukrywamy domyślną strzałkę rozwijania w 2. kolumnie na rzecz oszczędności miejsca */
-        [data-testid="column"]:nth-child(2) svg {
-            display: none !important;
-        }
-
-        /* Przycinamy tekst, by widoczna była tylko pierwsza ikonka Emoji */
-        [data-testid="column"]:nth-child(2) [data-aria-selected="true"],
-        [data-testid="column"]:nth-child(2) div[role="combobox"] {
-            max-width: 28px !important;
-            overflow: hidden !important;
-            text-overflow: clip !important;
-            font-size: 1.1rem !important;
-            text-align: center !important;
-        }
+    div[data-testid="stWidgetLabel"] p {
+        font-size: 0.85rem !important;
+        font-weight: 600 !important;
     }
 
     /* Nagłówek QuizNuta */
@@ -164,7 +145,7 @@ st.markdown("""
         border-radius: 50%;
     }
 
-    /* Kafelki ze statystykami */
+    /* Kafelki statystyk */
     .stats-container {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -237,6 +218,7 @@ st.markdown("""
     .feedback-main { font-size: 1rem; font-weight: 700; color: #ffffff; line-height: 1.2; }
     .feedback-sub { font-size: 0.82rem; color: #a0a5b5; margin-top: 2px; }
 
+    /* Domyślny główny przycisk gry */
     .stButton > button {
         width: 100% !important;
         background: linear-gradient(90deg, #ff007a, #7b2cbf) !important;
@@ -251,7 +233,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Inicjalizacja stanu
+# Inicjalizacja stanu aplikacji
 if "full_playlist" not in st.session_state:
     st.session_state.full_playlist = []
 if "songs_pool" not in st.session_state:
@@ -270,6 +252,8 @@ if "last_correct" not in st.session_state:
     st.session_state.last_correct = False
 if "audio_id" not in st.session_state:
     st.session_state.audio_id = 0
+if "selected_mode_idx" not in st.session_state:
+    st.session_state.selected_mode_idx = 0
 
 def load_predefined_playlists():
     if os.path.exists("playlists.json"):
@@ -338,7 +322,7 @@ def draw_next_song():
     st.session_state.last_correct = False
     st.session_state.audio_id += 1
 
-# Nagłówek
+# Nagłówek aplikacji
 st.markdown("""
     <div class="app-header">
         <div class="app-title-container">
@@ -361,18 +345,63 @@ mode_options = [
 predefined = load_predefined_playlists()
 playlist_id_to_load = None
 
-col1, col2 = st.columns(2)
+# --- DESKTOP (Ekrany > 600px) ---
+st.markdown('<div class="desktop-only">', unsafe_allow_html=True)
+col_d1, col_d2 = st.columns([3, 2])
 
-with col1:
+with col_d1:
     if predefined:
-        options_map = {p["name"]: str(p["id"]) for p in predefined if "name" in p and "id" in p}
-        options_map["-- Inny link --"] = "custom"
-        selected_name = st.selectbox("🎛️ Playlista:", options=list(options_map.keys()))
-        if options_map[selected_name] != "custom":
-            playlist_id_to_load = options_map[selected_name]
+        options_map_d = {p["name"]: str(p["id"]) for p in predefined if "name" in p and "id" in p}
+        options_map_d["-- Inny link --"] = "custom"
+        selected_name_d = st.selectbox("🎛️ Playlista:", options=list(options_map_d.keys()), key="desk_play")
+        if options_map_d[selected_name_d] != "custom":
+            playlist_id_to_load = options_map_d[selected_name_d]
 
-with col2:
-    selected_mode_full = st.selectbox("🎯 Tryb gry:", options=mode_options, index=0)
+with col_d2:
+    selected_mode_full_d = st.selectbox(
+        "🎯 Tryb gry:", 
+        options=mode_options, 
+        index=st.session_state.selected_mode_idx,
+        key="desk_mode"
+    )
+    st.session_state.selected_mode_idx = mode_options.index(selected_mode_full_d)
+st.markdown('</div>', unsafe_allow_html=True)
+
+# --- MOBILE (Ekrany <= 600px) ---
+st.markdown('<div class="mobile-only">', unsafe_allow_html=True)
+
+if predefined:
+    options_map_m = {p["name"]: str(p["id"]) for p in predefined if "name" in p and "id" in p}
+    options_map_m["-- Inny link --"] = "custom"
+    selected_name_m = st.selectbox("🎛️ Wybierz playlistę:", options=list(options_map_m.keys()), key="mob_play")
+    if options_map_m[selected_name_m] != "custom":
+        playlist_id_to_load = options_map_m[selected_name_m]
+
+st.markdown('<div class="mode-label">🎯 Tryb gry:</div>', unsafe_allow_html=True)
+m_col1, m_col2, m_col3 = st.columns(3)
+
+with m_col1:
+    btn_type = "primary" if st.session_state.selected_mode_idx == 0 else "secondary"
+    if st.button("👤 Autor", key="btn_m0", use_container_width=True, type=btn_type):
+        st.session_state.selected_mode_idx = 0
+        st.rerun()
+
+with m_col2:
+    btn_type = "primary" if st.session_state.selected_mode_idx == 1 else "secondary"
+    if st.button("🎵 Tytuł", key="btn_m1", use_container_width=True, type=btn_type):
+        st.session_state.selected_mode_idx = 1
+        st.rerun()
+
+with m_col3:
+    btn_type = "primary" if st.session_state.selected_mode_idx == 2 else "secondary"
+    if st.button("🔀 Obie", key="btn_m2", use_container_width=True, type=btn_type):
+        st.session_state.selected_mode_idx = 2
+        st.rerun()
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+# Aktualnie wyabrany tryb
+selected_mode_full = mode_options[st.session_state.selected_mode_idx]
 
 if "Obie opcje" in selected_mode_full:
     clean_mode = "Wykonawca i Tytuł"
