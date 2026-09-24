@@ -9,26 +9,61 @@ st.set_page_config(page_title="QuizNuta", page_icon="🎵", layout="centered")
 TEMP_DIR = "temp_audio"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
-# CSS: Twardy reset szerokości i brak wychodzenia poza ekran mobilny
+# CSS z responsywnością (Media Queries dla Desktop i Mobile)
 st.markdown("""
     <style>
-    /* Reset tła i ukrycie domyślnych nagłówków Streamlit */
+    /* Reset paska nagłówka i stopki */
     header[data-testid="stHeader"], footer, [data-testid="stSidebar"], [data-testid="collapsedControl"] {
         display: none !important;
     }
 
-    /* Blokada rozpychania całej strony na boki */
+    /* Zapobieganie przewijaniu poziomemu */
     html, body, [data-testid="stAppViewContainer"], .main {
         overflow-x: hidden !important;
-        max-width: 100vw !important;
     }
 
     /* Główny kontener aplikacji */
     .block-container {
-        padding: 1rem 0.5rem !important;
-        max-width: 450px !important;
-        width: 100% !important;
+        padding-top: 1.2rem !important;
+        padding-bottom: 1rem !important;
+        padding-left: 0.8rem !important;
+        padding-right: 0.8rem !important;
+        max-width: 500px !important;
         margin: 0 auto !important;
+    }
+
+    /* UKŁAD KOLUMN DLA DESKTOPA I MOBILE */
+    [data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 12px !important;
+        width: 100% !important;
+    }
+
+    [data-testid="column"] {
+        flex: 1 1 50% !important;
+        width: 50% !important;
+        min-width: 0 !important;
+    }
+
+    /* Wygładzenie selectboxów i etykiet */
+    div[data-testid="stWidgetLabel"] p {
+        font-size: 0.85rem !important;
+        font-weight: 600 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+
+    div[data-baseweb="select"] {
+        border-radius: 12px !important;
+        width: 100% !important;
+    }
+
+    div[data-baseweb="select"] > div {
+        padding-left: 8px !important;
+        padding-right: 8px !important;
     }
 
     /* Nagłówek QuizNuta */
@@ -41,47 +76,49 @@ st.markdown("""
     .app-title-container {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
     }
     .app-logo {
         background: linear-gradient(135deg, #ff007a, #7b2cbf);
-        width: 36px;
-        height: 36px;
+        width: 38px;
+        height: 38px;
         border-radius: 10px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 18px;
+        font-size: 20px;
         box-shadow: 0 4px 12px rgba(255, 0, 122, 0.4);
     }
     .app-title-wrapper {
         display: flex;
         flex-direction: column;
-        align-items: flex-start;
+        align-items: flex-end;
     }
     .app-title {
-        font-size: 1.4rem;
+        font-size: 1.5rem;
         font-weight: 800;
         color: #ffffff;
         margin: 0;
         line-height: 1;
     }
     .app-subtitle {
-        font-size: 0.7rem;
+        font-size: 0.72rem;
         color: #a0a5b5;
+        font-weight: normal;
         margin-top: 2px;
+        line-height: 1;
     }
     .badge-live {
         background-color: rgba(45, 198, 83, 0.15);
         color: #2dc653;
         border: 1px solid rgba(45, 198, 83, 0.4);
-        padding: 2px 8px;
+        padding: 3px 10px;
         border-radius: 20px;
-        font-size: 0.7rem;
+        font-size: 0.75rem;
         font-weight: 600;
         display: flex;
         align-items: center;
-        gap: 4px;
+        gap: 5px;
     }
     .badge-live::before {
         content: '';
@@ -91,110 +128,100 @@ st.markdown("""
         border-radius: 50%;
     }
 
-    /* SZTYWNY UKŁAD 2 KOLUMN DLA SELEKTORÓW (GRID) */
-    [data-testid="stHorizontalBlock"] {
-        display: grid !important;
-        grid-template-columns: 1fr 1fr !important;
-        gap: 8px !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        box-sizing: border-box !important;
-    }
-
-    [data-testid="column"] {
-        width: 100% !important;
-        min-width: 0 !important;
-    }
-
-    /* Stylizacja etykiet i samych selectboxów */
-    div[data-testid="stWidgetLabel"] p {
-        font-size: 0.8rem !important;
-        font-weight: 600 !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-    }
-
-    div[data-baseweb="select"] {
-        border-radius: 10px !important;
-        min-width: 0 !important;
-    }
-
-    div[data-baseweb="select"] > div {
-        padding-left: 6px !important;
-        padding-right: 6px !important;
-        font-size: 0.85rem !important;
-    }
-
     /* Kafelki ze statystykami */
     .stats-container {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 8px;
+        gap: 10px;
         margin-bottom: 12px;
     }
     .stat-card {
         background-color: #121622;
         border: 1px solid #1e2436;
-        border-radius: 12px;
-        padding: 8px 10px;
+        border-radius: 14px;
+        padding: 10px 12px;
         position: relative;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
     }
     .stat-label {
-        font-size: 0.65rem;
+        font-size: 0.68rem;
         color: #7b839b;
         font-weight: 700;
         text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
     .stat-value {
-        font-size: 1.1rem;
+        font-size: 1.25rem;
         font-weight: 800;
         color: #ffffff;
-        margin-top: 2px;
+        margin-top: 4px;
     }
     .stat-value span {
-        font-size: 0.75rem;
+        font-size: 0.8rem;
         color: #7b839b;
         font-weight: normal;
     }
     .stat-icon {
         position: absolute;
-        top: 8px;
-        right: 8px;
-        font-size: 12px;
+        top: 10px;
+        right: 10px;
+        width: 30px;
+        height: 30px;
+        background-color: #1a2030;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
     }
 
     audio {
         width: 100% !important;
-        height: 40px !important;
+        height: 45px !important;
+        border-radius: 12px;
         margin-top: 4px;
     }
 
     .feedback-box {
         background-color: #121622;
         border: 1px solid #1e2436;
-        border-radius: 12px;
-        padding: 10px 12px;
+        border-radius: 14px;
+        padding: 12px 14px;
         display: flex;
         align-items: center;
-        gap: 10px;
-        margin: 10px 0;
+        gap: 14px;
+        margin-top: 10px;
+        margin-bottom: 12px;
     }
     .feedback-box.correct { border-color: #2dc653; background-color: rgba(45, 198, 83, 0.08); }
     .feedback-box.wrong { border-color: #ff3366; background-color: rgba(255, 51, 102, 0.08); }
-    .feedback-icon { font-size: 20px; }
-    .feedback-main { font-size: 0.95rem; font-weight: 700; color: #ffffff; }
-    .feedback-sub { font-size: 0.8rem; color: #a0a5b5; }
+    .feedback-icon { font-size: 22px; }
+    .feedback-main { font-size: 1rem; font-weight: 700; color: #ffffff; line-height: 1.2; }
+    .feedback-sub { font-size: 0.82rem; color: #a0a5b5; margin-top: 2px; }
 
     .stButton > button {
         width: 100% !important;
         background: linear-gradient(90deg, #ff007a, #7b2cbf) !important;
         color: white !important;
         border: none !important;
-        border-radius: 12px !important;
-        padding: 10px 16px !important;
-        font-size: 0.95rem !important;
+        border-radius: 14px !important;
+        padding: 12px 20px !important;
+        font-size: 1rem !important;
         font-weight: 700 !important;
+        box-shadow: 0 4px 15px rgba(255, 0, 122, 0.3) !important;
+    }
+
+    /* MIKRO-POPRAWKI DLA EKRANÓW MOBILNYCH (<600px) */
+    @media (max-width: 600px) {
+        [data-testid="stHorizontalBlock"] {
+            gap: 6px !important;
+        }
+        div[data-baseweb="select"] > div {
+            padding-left: 4px !important;
+            padding-right: 4px !important;
+        }
     }
     </style>
 """, unsafe_allow_html=True)
@@ -300,7 +327,6 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# Opcje trybów
 mode_options = [
     "👤 Wykonawca",
     "🎵 Tytuł",
@@ -310,21 +336,19 @@ mode_options = [
 predefined = load_predefined_playlists()
 playlist_id_to_load = None
 
-# Blok wyboru - CSS Grid wymusza układ 50%/50% w jednym wierszu
 col1, col2 = st.columns(2)
 
 with col1:
     if predefined:
         options_map = {p["name"]: str(p["id"]) for p in predefined if "name" in p and "id" in p}
-        options_map["-- Własna --"] = "custom"
-        selected_name = st.selectbox("🎛️ Playlista", options=list(options_map.keys()))
+        options_map["-- Inny link --"] = "custom"
+        selected_name = st.selectbox("🎛️ Playlista:", options=list(options_map.keys()))
         if options_map[selected_name] != "custom":
             playlist_id_to_load = options_map[selected_name]
 
 with col2:
-    selected_mode_full = st.selectbox("🎯 Tryb", options=mode_options, index=0)
+    selected_mode_full = st.selectbox("🎯 Tryb gry:", options=mode_options, index=0)
 
-# Odczyt trybu
 if "Obie opcje" in selected_mode_full:
     clean_mode = "Wykonawca i Tytuł"
 elif "Tytuł" in selected_mode_full:
@@ -340,9 +364,8 @@ if not playlist_id_to_load:
 if st.session_state.full_playlist:
     st.session_state.options_list = prepare_options(st.session_state.full_playlist, clean_mode)
 
-# Przycisk startu
 if not st.session_state.current_song and st.session_state.total == 0:
-    if st.button("Pobierz i rozpocznij"):
+    if st.button("Pobierz playlistę i rozpocznij grę"):
         if playlist_id_to_load:
             with st.spinner("Pobieranie..."):
                 fetched_songs = fetch_deezer_playlist(playlist_id_to_load)
@@ -360,7 +383,6 @@ if not st.session_state.current_song and st.session_state.total == 0:
         else:
             st.warning("Wybierz playlistę.")
 
-# Gra
 if st.session_state.current_song:
     song = st.session_state.current_song
     remaining_count = len(st.session_state.songs_pool) + 1
@@ -369,13 +391,17 @@ if st.session_state.current_song:
     st.markdown(f"""
         <div class="stats-container">
             <div class="stat-card">
-                <div class="stat-label">WYNIK</div>
-                <div class="stat-value">{st.session_state.score} / {st.session_state.total} <span>({accuracy}%)</span></div>
+                <div>
+                    <div class="stat-label">TWÓJ WYNIK</div>
+                    <div class="stat-value">{st.session_state.score} / {st.session_state.total} <span>({accuracy}%)</span></div>
+                </div>
                 <div class="stat-icon">🏆</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">POZOSTAŁO</div>
-                <div class="stat-value">{remaining_count} <span>utworów</span></div>
+                <div>
+                    <div class="stat-label">POZOSTAŁO</div>
+                    <div class="stat-value">{remaining_count} <span>piosenek</span></div>
+                </div>
                 <div class="stat-icon">🎵</div>
             </div>
         </div>
@@ -387,7 +413,7 @@ if st.session_state.current_song:
     selectable_options = [default_option] + st.session_state.options_list
     
     user_choice = st.selectbox(
-        "Wybierz odpowiedź:", 
+        "Wybierz odpowiedź z listy:", 
         options=selectable_options, 
         key=f"q_select_{st.session_state.audio_id}"
     )
