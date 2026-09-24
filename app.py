@@ -9,7 +9,7 @@ st.set_page_config(page_title="QuizNuta", page_icon="🎵", layout="centered")
 TEMP_DIR = "temp_audio"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
-# CSS z regułami blokującymi focus i kursor w selectboxach
+# CSS – czysty interfejs bez niepotrzebnych marginesów
 st.markdown("""
     <style>
     header[data-testid="stHeader"], footer, [data-testid="sidebar"], [data-testid="collapsedControl"] {
@@ -62,38 +62,6 @@ st.markdown("""
         overflow: hidden !important;
         text-overflow: ellipsis !important;
     }
-
-    /* --- STYLIZACJA SELECTBOXA I USUWANIE FOCUSU/KURSORA (SPOSÓB 2) --- */
-    div[data-baseweb="select"] {
-        border-radius: 12px !important;
-        width: 100% !important;
-        min-width: 0 !important;
-    }
-
-    div[data-baseweb="select"] > div {
-        padding-left: 8px !important;
-        padding-right: 8px !important;
-    }
-
-    /* Wyłączenie migającego kursora i zdarzeń pisania w polu tekstowym wewnątrz Selectboxa */
-    div[data-baseweb="select"] input {
-        caret-color: transparent !important;
-        pointer-events: none !important;
-        user-select: none !important;
-    }
-
-    /* Wyłączenie niechcianych obramowań i cieni po kliknięciu/wyborze */
-    div[data-baseweb="select"] *,
-    div[data-baseweb="select"] input {
-        outline: none !important;
-        box-shadow: none !important;
-    }
-
-    div[data-baseweb="select"]:focus-within {
-        border-color: transparent !important;
-        box-shadow: none !important;
-    }
-    /* ---------------------------------------------------- */
 
     .app-header {
         display: flex;
@@ -268,6 +236,8 @@ if "current_playlist_id" not in st.session_state:
     st.session_state.current_playlist_id = None
 if "missing_tracks" not in st.session_state:
     st.session_state.missing_tracks = []
+if "user_selected_answer" not in st.session_state:
+    st.session_state.user_selected_answer = "Nie mam pojęcia :-)"
 
 def load_predefined_playlists():
     if os.path.exists("playlists.json"):
@@ -348,6 +318,7 @@ def draw_next_song():
     st.session_state.current_song = song
     st.session_state.answered = False
     st.session_state.last_correct = False
+    st.session_state.user_selected_answer = "Nie mam pojęcia :-)"
     st.session_state.audio_id += 1
 
 def start_new_game(playlist_id, mode):
@@ -463,12 +434,61 @@ if st.session_state.current_song:
 
     default_option = "Nie mam pojęcia :-)"
     selectable_options = [default_option] + st.session_state.options_list
+
+    # NATYWNY ELEMENT SELECT W HTML (100% BEZ KURSORA / BEZ INPUTU)
+    options_html = "".join([f'<option value="{opt}">{opt}</option>' for opt in selectable_options])
     
-    user_choice = st.selectbox(
-        "Wybierz odpowiedź z listy:", 
-        options=selectable_options, 
-        key=f"q_select_{st.session_state.audio_id}"
-    )
+    st.components.v1.html(f"""
+        <div style="font-family: sans-serif; font-size: 0.85rem; font-weight: 600; color: #a0a5b5; margin-bottom: 6px;">
+            Wybierz odpowiedź z listy:
+        </div>
+        <select id="native_select_{st.session_state.audio_id}" style="
+            width: 100%;
+            padding: 10px 12px;
+            background-color: #1a2030;
+            color: #ffffff;
+            border: 1px solid #2d3748;
+            border-radius: 12px;
+            font-size: 1rem;
+            outline: none;
+            -webkit-appearance: menulist;
+            cursor: pointer;
+        " onchange="
+            const val = this.value;
+            window.parent.postMessage({{type: 'QUIZNUTA_SELECT', value: val}}, '*');
+        ">
+            {options_html}
+        </select>
+
+        <script>
+            // Przekazanie wartości do Streamlita bez odświeżania strony
+            document.getElementById('native_select_{st.session_state.audio_id}').addEventListener('change', function(e) {{
+                const val = e.target.value;
+                const data = {{type: 'QUIZNUTA_SELECT', value: val}};
+                window.parent.postMessage(data, '*');
+            }});
+        </script>
+    """, height=85)
+
+    # Odbiór danych z natywnego HTML Select w Pythonie
+    query_params = st.query_params
+    if "selected_val" in query_params:
+        st.session_state.user_selected_answer = query_params["selected_val"]
+
+    # Kod JavaScript przechwytujący wybór z iframe i ustawiający parametr URL
+    st.components.v1.html("""
+        <script>
+            window.addEventListener('message', function(event) {
+                if (event.data && event.data.type === 'QUIZNUTA_SELECT') {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('selected_val', event.data.value);
+                    window.history.replaceState({}, '', url);
+                }
+            });
+        </script>
+    """, height=0)
+
+    user_choice = st.session_state.user_selected_answer
 
     if not st.session_state.answered:
         if st.button("Sprawdź odpowiedź 🎯"):
