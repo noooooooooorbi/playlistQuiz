@@ -12,7 +12,7 @@ os.makedirs(TEMP_DIR, exist_ok=True)
 # CSS z precyzyjnymi wartościami marginesów
 st.markdown("""
     <style>
-    header[data-testid="stHeader"], footer, [data-testid="stSidebar"], [data-testid="collapsedControl"] {
+    header[data-testid="stHeader"], footer, [data-testid="sidebar"], [data-testid="collapsedControl"] {
         display: none !important;
     }
 
@@ -245,6 +245,8 @@ if "audio_id" not in st.session_state:
     st.session_state.audio_id = 0
 if "current_playlist_id" not in st.session_state:
     st.session_state.current_playlist_id = None
+if "missing_tracks" not in st.session_state:
+    st.session_state.missing_tracks = []
 
 def load_predefined_playlists():
     if os.path.exists("playlists.json"):
@@ -267,37 +269,55 @@ def extract_playlist_id(url):
     return url
 
 @st.cache_data(ttl=60)
-def fetch_deezer_playlist_v3(playlist_id):
-    songs = []
-    # Pobieramy bezpośrednio utwory używając oficjalnego interfejsu stronnicowania Deezer
-    url = f"https://api.deezer.com/playlist/{playlist_id}/tracks?limit=100"
+def fetch_deezer_playlist_v3(playlist_ids_str):
+    all_songs = []
+    missing_songs = []
     
-    while url:
-        try:
-            res = requests.get(url, timeout=10)
-            if res.status_code != 200:
-                break
-            data = res.json()
-            if "error" in data or "data" not in data:
-                break
+    # Podział na wypadek przekazania kilku ID po przecinku
+    ids = [p_id.strip() for p_id in str(playlist_ids_str).split(",") if p_id.strip()]
+    
+    for playlist_id in ids:
+        url = f"https://api.deezer.com/playlist/{playlist_id}/tracks?limit=100"
+        
+        while url:
+            try:
+                res = requests.get(url, timeout=10)
+                if res.status_code != 200:
+                    break
+                data = res.json()
+                if "error" in data or "data" not in data:
+                    break
+                
+                for track in data["data"]:
+                    preview = track.get("preview")
+                    title = track.get("title", "Unknown")
+                    artist = track.get("artist", {}).get("name", "Unknown")
+                    
+                    # -------------------------------------------------------------
+                    # POPRZEDNIA WERSJA (Zakomentowana):
+                    # if preview and isinstance(preview, str) and preview.startswith("http"):
+                    #     all_songs.append({
+                    #         "title": title,
+                    #         "artist": artist,
+                    #         "preview_url": preview
+                    #     })
+                    # -------------------------------------------------------------
 
-            
-            for track in data["data"]:
-                preview = track.get("preview")
-                if preview and isinstance(preview, str) and preview.startswith("http"):
-                    songs.append({
-                        "title": track.get("title", "Unknown"),
-                        "artist": track.get("artist", {}).get("name", "Unknown"),
-                        "preview_url": preview
-                    })
-         
-            
-            # Pobieramy link do kolejnej strony wyników (jeśli istnieje)
-            url = data.get("next")
-        except Exception:
-            break
-            
-    return songs
+                    # POPRAWIONA WERSJA z rejestrowaniem piosenek bez audio:
+                    if preview and isinstance(preview, str) and preview.startswith("http"):
+                        all_songs.append({
+                            "title": title,
+                            "artist": artist,
+                            "preview_url": preview
+                        })
+                    else:
+                        missing_songs.append(f"{artist} - {title}")
+                
+                url = data.get("next")
+            except Exception:
+                break
+                
+    return all_songs, missing_songs
 
 def prepare_options(songs, raw_mode):
     options = set()
@@ -323,12 +343,13 @@ def draw_next_song():
 
 def start_new_game(playlist_id, mode):
     with st.spinner("Pobieranie pełnej playlisty..."):
-        fetched_songs = fetch_deezer_playlist_v3(playlist_id)
+        fetched_songs, missing = fetch_deezer_playlist_v3(playlist_id)
         if fetched_songs:
             st.session_state.current_playlist_id = playlist_id
             st.session_state.full_playlist = fetched_songs.copy()
             st.session_state.songs_pool = fetched_songs.copy()
             st.session_state.options_list = prepare_options(fetched_songs, mode)
+            st.session_state.missing_tracks = missing
             st.session_state.score = 0
             st.session_state.total = 0
             st.session_state.audio_id = 0
@@ -386,7 +407,7 @@ if not playlist_id_to_load:
     if custom_input:
         playlist_id_to_load = extract_playlist_id(custom_input)
 
-# Wykrywanie zmiany playlisty na nową – natychmiastowy reset i załadowanie nowej gry
+# Wykrywanie zmiany playlisty na nową
 if playlist_id_to_load and playlist_id_to_load != st.session_state.current_playlist_id:
     if start_new_game(playlist_id_to_load, clean_mode):
         st.rerun()
@@ -502,3 +523,9 @@ elif st.session_state.total > 0 and not st.session_state.songs_pool:
         st.session_state.current_playlist_id = None
         st.rerun()
 
+# --- BLOK DIAGNOSTYCZNY ---
+# Wyświetla utwory odrzucone z powodu braku próbki MP3
+if st.session_state.missing_tracks:
+    with st.expander(f"⚠️ Zobacz pominięte utwory bez próbki audio ({len(st.session_state.missing_tracks)})"):
+        for item in st.session_state.missing_tracks:
+            st.write(f"❌ {item}")
