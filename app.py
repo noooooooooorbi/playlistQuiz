@@ -9,7 +9,7 @@ st.set_page_config(page_title="QuizNuta", page_icon="🎵", layout="centered")
 TEMP_DIR = "temp_audio"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
-# CSS z ułożeniem pionowym na mobile i poziomym na desktopie
+# CSS z poprawioną przestrzenią u góry i pozycjonowaniem "by Norbbs"
 st.markdown("""
     <style>
     /* Reset paska nagłówka, stopki i paska bocznego */
@@ -23,9 +23,12 @@ st.markdown("""
         max-width: 100vw !important;
     }
 
-    /* Główny kontener aplikacji */
+    /* Główny kontener aplikacji - usunięcie górnego odstępu */
     .block-container {
-        padding: 1.2rem 0.8rem 1rem 0.8rem !important;
+        padding-top: 0.2rem !important;
+        padding-bottom: 1rem !important;
+        padding-left: 0.8rem !important;
+        padding-right: 0.8rem !important;
         max-width: 500px !important;
         margin: 0 auto !important;
     }
@@ -77,12 +80,13 @@ st.markdown("""
         padding-right: 8px !important;
     }
 
-    /* Nagłówek QuizNuta */
+    /* Nagłówek QuizNuta - przesunięcie "by Norbbs" wyżej */
     .app-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
         margin-bottom: 12px;
+        padding-top: 0px;
     }
     .app-title-container {
         display: flex;
@@ -116,7 +120,7 @@ st.markdown("""
         font-size: 0.72rem;
         color: #a0a5b5;
         font-weight: normal;
-        margin-top: 2px;
+        margin-top: -4px;
         line-height: 1;
     }
     .badge-live {
