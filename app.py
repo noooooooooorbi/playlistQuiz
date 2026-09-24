@@ -10,7 +10,7 @@ st.set_page_config(page_title="QuizNuta", page_icon="🎵", layout="centered")
 TEMP_DIR = "temp_audio"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
-# CSS: Nowoczesny interfejs QuizNuta
+# CSS: Nowoczesny interfejs QuizNuta + obsługa układu mobilnego
 st.markdown("""
     <style>
     /* Ukrywamy domyślne paski i sidebar Streamlita */
@@ -91,6 +91,19 @@ st.markdown("""
         height: 6px;
         background-color: #2dc653;
         border-radius: 50%;
+    }
+
+    /* Wymuszenie 2 kolumn obok siebie na telefonach dla Playlisty i Trybu */
+    [data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        gap: 8px !important;
+        width: 100% !important;
+    }
+    [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+        width: 50% !important;
+        flex: 1 1 50% !important;
+        min-width: 0 !important;
     }
 
     /* Kafelki ze statystykami */
@@ -216,6 +229,13 @@ st.markdown("""
     div[data-baseweb="select"] {
         border-radius: 12px !important;
     }
+
+    /* Optymalizacja szerokości napisów na małych ekranach */
+    @media (max-width: 600px) {
+        .mode-select-box option {
+            font-size: 14px;
+        }
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -286,14 +306,14 @@ def fetch_deezer_playlist(playlist_id):
     except Exception:
         return []
 
-def prepare_options(songs, selected_mode):
+def prepare_options(songs, raw_mode):
     options = set()
     for s in songs:
-        if selected_mode == "Tytuł":
+        if "Tytuł" in raw_mode and "Wykonawca" not in raw_mode:
             options.add(s["title"])
-        elif selected_mode == "Wykonawca":
+        elif "Wykonawca" in raw_mode and "Tytuł" not in raw_mode:
             options.add(s["artist"])
-        elif selected_mode == "Wykonawca i Tytuł":
+        else:
             options.add(f'{s["artist"]} - {s["title"]}')
     
     return sorted(list(options))
@@ -324,7 +344,14 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# Sekcja opcji: Playlista i Tryb gry w 2 kolumnach obok siebie
+# Mapowanie opcji trybu z ikona + nazwa
+mode_options = [
+    "👤 Wykonawca",
+    "🎵 Tytuł",
+    "🔀 Wykonawca i Tytuł"
+]
+
+# Sekcja opcji: Playlista i Tryb gry zawsze w 2 kolumnach obok siebie
 col1, col2 = st.columns(2)
 
 predefined = load_predefined_playlists()
@@ -341,20 +368,28 @@ with col1:
             playlist_id_to_load = options_map[selected_name]
 
 with col2:
-    mode = st.selectbox(
+    selected_mode_full = st.selectbox(
         "🎯 Tryb gry:", 
-        options=["Wykonawca", "Tytuł", "Wykonawca i Tytuł"], 
+        options=mode_options, 
         index=0
     )
+
+# Wyciągnięcie czystej nazwy trybu
+if "Wykonawca i Tytuł" in selected_mode_full:
+    clean_mode = "Wykonawca i Tytuł"
+elif "Tytuł" in selected_mode_full:
+    clean_mode = "Tytuł"
+else:
+    clean_mode = "Wykonawca"
 
 if not playlist_id_to_load:
     custom_input = st.text_input("Wklej link do playlisty Deezer:", placeholder="https://www.deezer.com/pl/playlist/908622995")
     if custom_input:
         playlist_id_to_load = extract_playlist_id(custom_input)
 
-# Dynamiczna aktualizacja listy opcji podczas gry, jeśli użytkownik zmieni tryb w trakcie rozgrywki
+# Dynamiczna aktualizacja listy opcji odpowiedzi podczas gry przy zmianie trybu
 if st.session_state.full_playlist:
-    st.session_state.options_list = prepare_options(st.session_state.full_playlist, mode)
+    st.session_state.options_list = prepare_options(st.session_state.full_playlist, clean_mode)
 
 # Przycisk startowy (jeśli gra nie trwa)
 if not st.session_state.current_song and st.session_state.total == 0:
@@ -365,7 +400,7 @@ if not st.session_state.current_song and st.session_state.total == 0:
                 if fetched_songs:
                     st.session_state.full_playlist = fetched_songs.copy()
                     st.session_state.songs_pool = fetched_songs.copy()
-                    st.session_state.options_list = prepare_options(fetched_songs, mode)
+                    st.session_state.options_list = prepare_options(fetched_songs, clean_mode)
                     st.session_state.score = 0
                     st.session_state.total = 0
                     st.session_state.audio_id = 0
@@ -423,11 +458,11 @@ if st.session_state.current_song:
             
             correct = False
             if user_choice != default_option:
-                if mode == "Tytuł" and user_choice == song["title"]:
+                if clean_mode == "Tytuł" and user_choice == song["title"]:
                     correct = True
-                elif mode == "Wykonawca" and user_choice == song["artist"]:
+                elif clean_mode == "Wykonawca" and user_choice == song["artist"]:
                     correct = True
-                elif mode == "Wykonawca i Tytuł" and user_choice == f'{song["artist"]} - {song["title"]}':
+                elif clean_mode == "Wykonawca i Tytuł" and user_choice == f'{song["artist"]} - {song["title"]}':
                     correct = True
 
             if correct:
@@ -443,10 +478,10 @@ if st.session_state.current_song:
         box_class = "correct" if st.session_state.last_correct else "wrong"
         icon = "🎯" if st.session_state.last_correct else "❌"
 
-        if mode == "Wykonawca":
+        if clean_mode == "Wykonawca":
             main_text = song['artist']
             sub_text = song['title']
-        elif mode == "Tytuł":
+        elif clean_mode == "Tytuł":
             main_text = song['title']
             sub_text = song['artist']
         else: # "Wykonawca i Tytuł"
