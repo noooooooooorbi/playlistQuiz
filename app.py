@@ -220,6 +220,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Inicjalizacja stanu aplikacji
+if "full_playlist" not in st.session_state:
+    st.session_state.full_playlist = []
 if "songs_pool" not in st.session_state:
     st.session_state.songs_pool = []
 if "options_list" not in st.session_state:
@@ -350,6 +352,10 @@ if not playlist_id_to_load:
     if custom_input:
         playlist_id_to_load = extract_playlist_id(custom_input)
 
+# Dynamiczna aktualizacja listy opcji podczas gry, jeśli użytkownik zmieni tryb w trakcie rozgrywki
+if st.session_state.full_playlist:
+    st.session_state.options_list = prepare_options(st.session_state.full_playlist, mode)
+
 # Przycisk startowy (jeśli gra nie trwa)
 if not st.session_state.current_song and st.session_state.total == 0:
     if st.button("Pobierz playlistę i rozpocznij grę"):
@@ -357,6 +363,7 @@ if not st.session_state.current_song and st.session_state.total == 0:
             with st.spinner("Ładowanie piosenek..."):
                 fetched_songs = fetch_deezer_playlist(playlist_id_to_load)
                 if fetched_songs:
+                    st.session_state.full_playlist = fetched_songs.copy()
                     st.session_state.songs_pool = fetched_songs.copy()
                     st.session_state.options_list = prepare_options(fetched_songs, mode)
                     st.session_state.score = 0
