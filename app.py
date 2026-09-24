@@ -33,22 +33,31 @@ st.markdown("""
         margin: 0 auto !important;
     }
 
-    /* UKŁAD DOMYŚLNY (DESKTOP): 2 KOLUMNY OBOK SIEBIE */
+    /* ZACHOWANIE 1 WIERSZA NA KAŻDYM EKRANIE */
     [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
-        gap: 12px !important;
+        gap: 8px !important;
         width: 100% !important;
+        align-items: flex-end !important;
     }
 
-    [data-testid="column"] {
-        flex: 1 1 50% !important;
-        width: 50% !important;
+    /* Pierwsza kolumna (80%) */
+    [data-testid="column"]:nth-child(1) {
+        flex: 4 1 80% !important;
+        width: 80% !important;
         min-width: 0 !important;
     }
 
-    /* Wygładzenie selectboxów i etykiet */
+    /* Druga kolumna (20%) */
+    [data-testid="column"]:nth-child(2) {
+        flex: 1 1 20% !important;
+        width: 20% !important;
+        min-width: 0 !important;
+    }
+
+    /* Etykiety i pola wybieralne */
     div[data-testid="stWidgetLabel"] p {
         font-size: 0.85rem !important;
         font-weight: 600 !important;
@@ -63,20 +72,33 @@ st.markdown("""
         min-width: 0 !important;
     }
 
-    div[data-baseweb="select"] > div {
-        padding-left: 8px !important;
-        padding-right: 8px !important;
-    }
-
-    /* RWD MOBILNE (< 600px): UKŁAD JEDEN POD DRUGIM, BY NIC NIE WYSTAWAŁO */
+    /* MIKRO-STYLIZACJA DLA DRUGIEJ KOLUMNY NA MOBILE (< 600px) */
     @media (max-width: 600px) {
-        [data-testid="stHorizontalBlock"] {
-            flex-direction: column !important;
-            gap: 8px !important;
+        /* Ukrywamy etykietę nad drugim selektorem (zostawiamy samą w pierwszej kolumnie) */
+        [data-testid="column"]:nth-child(2) div[data-testid="stWidgetLabel"] {
+            display: none !important;
         }
-        [data-testid="column"] {
-            width: 100% !important;
-            flex: 1 1 100% !important;
+
+        /* Zmniejszamy wewnętrzne marginesy pola, by zmieścić ikonkę */
+        [data-testid="column"]:nth-child(2) div[data-baseweb="select"] > div {
+            padding-left: 6px !important;
+            padding-right: 4px !important;
+            justify-content: center !important;
+        }
+
+        /* Ukrywamy domyślną strzałkę rozwijania w 2. kolumnie na rzecz oszczędności miejsca */
+        [data-testid="column"]:nth-child(2) svg {
+            display: none !important;
+        }
+
+        /* Przycinamy tekst, by widoczna była tylko pierwsza ikonka Emoji */
+        [data-testid="column"]:nth-child(2) [data-aria-selected="true"],
+        [data-testid="column"]:nth-child(2) div[role="combobox"] {
+            max-width: 28px !important;
+            overflow: hidden !important;
+            text-overflow: clip !important;
+            font-size: 1.1rem !important;
+            text-align: center !important;
         }
     }
 
