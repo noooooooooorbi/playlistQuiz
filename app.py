@@ -266,55 +266,37 @@ def extract_playlist_id(url):
             return part
     return url
 
-@st.cache_data(ttl=3600)
-def fetch_deezer_playlist(playlist_id):
+@st.cache_data(ttl=60)
+def fetch_deezer_playlist_v3(playlist_id):
     songs = []
-    index = 0
-    limit = 100
-    total_tracks = None
-
-    while True:
-        # Oficjalny endpoint z jawnym indeksem i limitami
-        api_url = f"https://api.deezer.com/playlist/{playlist_id}/tracks?index={index}&limit={limit}"
+    # Pobieramy bezpośrednio utwory używając oficjalnego interfejsu stronnicowania Deezer
+    url = f"https://api.deezer.com/playlist/{playlist_id}/tracks?limit=100"
+    
+    while url:
         try:
-            response = requests.get(api_url, timeout=10)
-            if response.status_code != 200:
+            res = requests.get(url, timeout=10)
+            if res.status_code != 200:
                 break
-
-            data = response.json()
+            data = res.json()
             if "error" in data or "data" not in data:
                 break
-
-            # Odczytujemy łączną liczbę utworów z API Deezera
-            if total_tracks is None:
-                total_tracks = data.get("total", 0)
-
-            tracks = data.get("data", [])
-            if not tracks:
-                break
-
-            for track in tracks:
-                preview_url = track.get("preview")
-                # Filtrowanie aktywnych próbek audio
-                if preview_url and isinstance(preview_url, str) and preview_url.startswith("http"):
+            
+            for track in data["data"]:
+                preview = track.get("preview")
+                if preview and isinstance(preview, str) and preview.startswith("http"):
                     songs.append({
                         "title": track.get("title", "Unknown"),
                         "artist": track.get("artist", {}).get("name", "Unknown"),
-                        "preview_url": preview_url
+                        "preview_url": preview
                     })
-
-            # Zwiększamy indeks do kolejnej paczki
-            index += len(tracks)
-
-            # Warunek stopu: pobraliśmy już wszystkie utwory z listy lub brak kolejnych danych
-            if (total_tracks and index >= total_tracks) or len(tracks) == 0:
-                break
-
+            
+            # Pobieramy link do kolejnej strony wyników (jeśli istnieje)
+            url = data.get("next")
         except Exception:
             break
-
+            
     return songs
-    
+
 def prepare_options(songs, raw_mode):
     options = set()
     for s in songs:
@@ -338,8 +320,8 @@ def draw_next_song():
     st.session_state.audio_id += 1
 
 def start_new_game(playlist_id, mode):
-    with st.spinner("Pobieranie playlisty..."):
-        fetched_songs = fetch_deezer_playlist(playlist_id)
+    with st.spinner("Pobieranie pełnej playlisty..."):
+        fetched_songs = fetch_deezer_playlist_v3(playlist_id)
         if fetched_songs:
             st.session_state.current_playlist_id = playlist_id
             st.session_state.full_playlist = fetched_songs.copy()
