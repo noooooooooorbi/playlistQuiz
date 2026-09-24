@@ -10,7 +10,7 @@ st.set_page_config(page_title="QuizNuta", page_icon="🎵", layout="centered")
 TEMP_DIR = "temp_audio"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
-# CSS – czysty interfejs i idealny wygląd wewnątrz kart
+# CSS – czysty interfejs i precyzyjny układ kart z podkolumnami
 st.markdown("""
     <style>
     header[data-testid="stHeader"], footer, [data-testid="sidebar"], [data-testid="collapsedControl"] {
@@ -35,25 +35,8 @@ st.markdown("""
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
-        gap: 12px !important;
+        gap: 10px !important;
         width: 100% !important;
-    }
-
-    [data-testid="column"] {
-        flex: 1 1 50% !important;
-        width: 50% !important;
-        min-width: 0 !important;
-    }
-
-    @media (max-width: 600px) {
-        [data-testid="stHorizontalBlock"] {
-            flex-direction: column !important;
-            gap: 10px !important;
-        }
-        [data-testid="column"] {
-            width: 100% !important;
-            flex: 1 1 100% !important;
-        }
     }
 
     div[data-testid="stWidgetLabel"] p {
@@ -139,22 +122,14 @@ st.markdown("""
         border-radius: 50%;
     }
 
-    /* Układ statystyk w dwóch kartach */
-    .stats-container {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
-        margin-bottom: 12px;
-    }
-    .stat-card {
+    /* Wygląd kart statystyk */
+    .stat-card-box {
         background-color: #121622;
         border: 1px solid #1e2436;
         border-radius: 14px;
         padding: 10px 12px;
+        min-height: 72px;
         position: relative;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
     }
     .stat-label {
         font-size: 0.68rem;
@@ -175,8 +150,7 @@ st.markdown("""
         font-weight: normal;
     }
     
-    /* Zwykła ikona statystyk wewnątrz karty */
-    .stat-icon {
+    .stat-icon-static {
         position: absolute;
         top: 10px;
         right: 10px;
@@ -188,32 +162,37 @@ st.markdown("""
         align-items: center;
         justify-content: center;
         font-size: 13px;
-        color: #7b839b;
     }
 
-    /* Klikalna ikona wewnątrz karty */
-    .stat-icon-btn {
+    /* Stylizacja przycisku/popover w prawym górnym rogu karty POZOSTAŁO */
+    .info-popover-container {
         position: absolute;
         top: 10px;
         right: 10px;
-        width: 30px;
-        height: 30px;
-        background-color: #1a2030;
-        border: 1px solid #2a324b;
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 13px;
-        color: #a0a5b5;
-        cursor: pointer;
-        text-decoration: none;
-        transition: all 0.2s ease;
+        z-index: 5;
     }
-    .stat-icon-btn:hover {
-        background-color: #252e46;
-        color: #ffffff;
-        border-color: #ff007a;
+
+    .info-popover-container div[data-testid="stPopover"] > button {
+        width: 30px !important;
+        height: 30px !important;
+        min-height: 30px !important;
+        padding: 0 !important;
+        background-color: #1a2030 !important;
+        border: 1px solid #2a324b !important;
+        border-radius: 8px !important;
+        color: #a0a5b5 !important;
+        font-size: 13px !important;
+        font-weight: bold !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        box-shadow: none !important;
+    }
+
+    .info-popover-container div[data-testid="stPopover"] > button:hover {
+        background-color: #252e46 !important;
+        color: #ffffff !important;
+        border-color: #ff007a !important;
     }
 
     .feedback-box {
@@ -270,19 +249,6 @@ if "current_playlist_id" not in st.session_state:
     st.session_state.current_playlist_id = None
 if "missing_tracks" not in st.session_state:
     st.session_state.missing_tracks = []
-if "show_missing_modal" not in st.session_state:
-    st.session_state.show_missing_modal = False
-
-# Modal/Dialog dla pominiętych utworów
-@st.dialog("ℹ️ Utwory bez próbki audio")
-def show_missing_dialog():
-    if st.session_state.missing_tracks:
-        st.write(f"Poniżej znajduje się lista **{len(st.session_state.missing_tracks)}** utworów, które zostały pominięte w grze ze względu na brak udostępnionej próbki dźwiękowej w Deezer API:")
-        st.markdown("---")
-        for item in st.session_state.missing_tracks:
-            st.markdown(f"❌ {item}")
-    else:
-        st.success("Wszystkie utwory z tej playlisty posiadają próbkę audio! 🎉")
 
 def load_predefined_playlists():
     if os.path.exists("playlists.json"):
@@ -383,16 +349,6 @@ def start_new_game(playlist_id, mode):
             st.error("Błąd pobierania playlisty. Sprawdź czy jest publiczna.")
             return False
 
-# Obbsługa zdarzenia kliknięcia w ikonkę info z URL
-query_params = st.query_params
-if query_params.get("show_info") == "true":
-    st.query_params.clear()
-    st.session_state.show_missing_modal = True
-
-if st.session_state.show_missing_modal:
-    st.session_state.show_missing_modal = False
-    show_missing_dialog()
-
 # Nagłówek
 st.markdown("""
     <div class="app-header">
@@ -462,25 +418,37 @@ if st.session_state.current_song:
     remaining_count = len(st.session_state.songs_pool) + 1
     accuracy = int((st.session_state.score / st.session_state.total * 100)) if st.session_state.total > 0 else 0
 
-    # Prawdziwe, spójne osadzenie obydwu kart w jednym bloku HTML bez zewnętrznych przycisków
-    st.markdown(f"""
-        <div class="stats-container">
-            <div class="stat-card">
-                <div>
-                    <div class="stat-label">TWÓJ WYNIK</div>
-                    <div class="stat-value">{st.session_state.score} / {st.session_state.total} <span>({accuracy}%)</span></div>
-                </div>
-                <div class="stat-icon">🏆</div>
+    col_s1, col_s2 = st.columns(2)
+
+    with col_s1:
+        st.markdown(f"""
+            <div class="stat-card-box">
+                <div class="stat-label">TWÓJ WYNIK</div>
+                <div class="stat-value">{st.session_state.score} / {st.session_state.total} <span>({accuracy}%)</span></div>
+                <div class="stat-icon-static">🏆</div>
             </div>
-            <div class="stat-card">
-                <div>
-                    <div class="stat-label">POZOSTAŁO</div>
-                    <div class="stat-value">{remaining_count} <span>piosenek</span></div>
-                </div>
-                <a href="?show_info=true" class="stat-icon-btn" title="Lista utworów bez próbki audio">i</a>
+        """, unsafe_allow_html=True)
+
+    with col_s2:
+        # Karta POZOSTAŁO
+        st.markdown(f"""
+            <div class="stat-card-box">
+                <div class="stat-label">POZOSTAŁO</div>
+                <div class="stat-value">{remaining_count} <span>piosenek</span></div>
             </div>
-        </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+
+        # Ikonka 'i' precyzyjnie nałożona na kartę POZOSTAŁO w prawym górnym rogu
+        st.markdown('<div class="info-popover-container">', unsafe_allow_html=True)
+        with st.popover("i", help="Utwory bez próbki audio"):
+            st.markdown("### ℹ️ Utwory bez próbki audio")
+            if st.session_state.missing_tracks:
+                st.caption(f"Lista {len(st.session_state.missing_tracks)} utworów pominiętych z powodu braku próbki dźwiękowej w Deezer API:")
+                for item in st.session_state.missing_tracks:
+                    st.markdown(f"• {item}")
+            else:
+                st.success("Wszystkie utwory z tej playlisty posiadają próbkę audio! 🎉")
+        st.markdown('</div>', unsafe_allow_html=True)
 
     if song.get("preview_url"):
         audio_html = f"""
