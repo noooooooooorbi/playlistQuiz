@@ -10,7 +10,7 @@ st.set_page_config(page_title="QuizNuta", page_icon="🎵", layout="centered")
 TEMP_DIR = "temp_audio"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
-# CSS – czysty interfejs bez niepotrzebnych marginesów
+# CSS – czysty interfejs i precyzyjne pozycjonowanie ikonki w karcie
 st.markdown("""
     <style>
     header[data-testid="stHeader"], footer, [data-testid="sidebar"], [data-testid="collapsedControl"] {
@@ -187,24 +187,29 @@ st.markdown("""
         font-size: 14px;
     }
 
-    /* Przycisk ikonki info w karcie POZOSTAŁO */
-    button.stat-icon-btn {
+    /* Nadpisanie stylu przycisku info tak, aby idealnie pasował do stat-icon w prawej karcie */
+    div[data-testid="column"]:nth-of-type(2) div.stButton {
         position: absolute !important;
         top: 10px !important;
         right: 10px !important;
         width: 30px !important;
         height: 30px !important;
+        z-index: 10 !important;
+    }
+
+    div[data-testid="column"]:nth-of-type(2) div.stButton > button {
+        width: 30px !important;
+        height: 30px !important;
         padding: 0 !important;
-        background-color: #1a2030 !important;
+        background: #1a2030 !important;
         border: none !important;
         border-radius: 8px !important;
         box-shadow: none !important;
-        font-size: 14px !important;
-        color: #ffffff !important;
+        font-size: 13px !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        cursor: pointer !important;
+        line-height: 1 !important;
     }
 
     .feedback-box {
@@ -441,8 +446,10 @@ if st.session_state.current_song:
     remaining_count = len(st.session_state.songs_pool) + 1
     accuracy = int((st.session_state.score / st.session_state.total * 100)) if st.session_state.total > 0 else 0
 
-    st.markdown(f"""
-        <div class="stats-container">
+    col_score, col_remaining = st.columns(2)
+
+    with col_score:
+        st.markdown(f"""
             <div class="stat-card">
                 <div>
                     <div class="stat-label">TWÓJ WYNIK</div>
@@ -450,18 +457,20 @@ if st.session_state.current_song:
                 </div>
                 <div class="stat-icon">🏆</div>
             </div>
+        """, unsafe_allow_html=True)
+
+    with col_remaining:
+        st.markdown(f"""
             <div class="stat-card">
                 <div>
                     <div class="stat-label">POZOSTAŁO</div>
                     <div class="stat-value">{remaining_count} <span>piosenek</span></div>
                 </div>
             </div>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # Dedykowany przycisk z ikonką "i" umieszczony dokładnie w karcie "POZOSTAŁO"
-    if st.button("ℹ️", key="info_missing_btn", help="Pokaż utwory bez próbki audio"):
-        show_missing_dialog()
+        """, unsafe_allow_html=True)
+        # Przycisk st.button jest teraz precyzyjnie usytuowany w prawej karcie
+        if st.button("ℹ️", key="info_btn", help="Lista utworów bez próbki audio"):
+            show_missing_dialog()
 
     if song.get("preview_url"):
         audio_html = f"""
