@@ -10,12 +10,14 @@ st.set_page_config(page_title="QuizNuta", page_icon="🎵", layout="centered")
 TEMP_DIR = "temp_audio"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
-# CSS: Nowoczesny interfejs QuizNuta inspirowany mockupem
+# CSS: Nowoczesny interfejs QuizNuta bez paska bocznego
 st.markdown("""
     <style>
-    /* Ukrywamy domyślne paski Streamlita */
+    /* Ukrywamy domyślne paski i sidebar Streamlita */
     header[data-testid="stHeader"] { display: none !important; }
     footer { display: none !important; }
+    [data-testid="stSidebar"] { display: none !important; }
+    [data-testid="collapsedControl"] { display: none !important; }
 
     /* Główny kontener aplikacji */
     .block-container {
@@ -190,9 +192,20 @@ st.markdown("""
         box-shadow: 0 6px 20px rgba(255, 0, 122, 0.5) !important;
     }
 
-    /* Stylowanie poleceń wyboru */
-    div[data-baseweb="select"] {
-        border-radius: 12px !important;
+    /* Dopasowanie kontrolek radio w grze */
+    div[role="radiogroup"] {
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        gap: 5px !important;
+    }
+    div[role="radiogroup"] > label {
+        background-color: #121622 !important;
+        border: 1px solid #1e2436 !important;
+        padding: 6px 10px !important;
+        border-radius: 10px !important;
+        margin: 0 !important;
+        flex: 1 !important;
+        text-align: center !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -214,10 +227,6 @@ if "last_correct" not in st.session_state:
     st.session_state.last_correct = False
 if "audio_id" not in st.session_state:
     st.session_state.audio_id = 0
-
-# Pasek boczny z ustawieniami
-st.sidebar.header("⚙️ Ustawienia Quizu")
-mode = st.sidebar.radio("Co chcesz odgadywać?", ["Tytuł", "Wykonawca", "Wykonawca i Tytuł"], index=1)
 
 def load_predefined_playlists():
     if os.path.exists("playlists.json"):
@@ -303,6 +312,14 @@ st.markdown("""
         <div class="badge-live">Live</div>
     </div>
 """, unsafe_allow_html=True)
+
+# Przeniesione Ustawienia: Tryb odgadywania na ekranie głównym
+mode = st.radio(
+    "🎯 Tryb gry:", 
+    ["Wykonawca", "Tytuł", "Wykonawca i Tytuł"], 
+    index=0, 
+    horizontal=True
+)
 
 # Wybór playlisty
 predefined = load_predefined_playlists()
