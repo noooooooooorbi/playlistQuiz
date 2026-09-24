@@ -3,27 +3,44 @@ import json
 import random
 import requests
 import streamlit as st
+from streamlit_javascript import st_javascript
 
 st.set_page_config(page_title="QuizNuta", page_icon="🎵", layout="centered")
 
 TEMP_DIR = "temp_audio"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
-# CSS z precyzyjnymi wartościami marginesów dla nagłówka
+# Funkcje pomocnicze do Zapisu / Odczytu z LocalStorage przeglądarki
+def save_game_to_local_storage():
+    state_data = {
+        "full_playlist": st.session_state.full_playlist,
+        "songs_pool": st.session_state.songs_pool,
+        "options_list": st.session_state.options_list,
+        "current_song": st.session_state.current_song,
+        "score": st.session_state.score,
+        "total": st.session_state.total,
+        "answered": st.session_state.answered,
+        "last_correct": st.session_state.last_correct,
+        "audio_id": st.session_state.audio_id
+    }
+    json_str = json.dumps(state_data).replace("'", "\\'").replace('"', '\\"')
+    st_javascript(f"localStorage.setItem('quiznuta_state', '{json_str}');")
+
+def clear_local_storage():
+    st_javascript("localStorage.removeItem('quiznuta_state');")
+
+# CSS z precyzyjnymi wartościami marginesów
 st.markdown("""
     <style>
-    /* Reset paska nagłówka, stopki i paska bocznego */
     header[data-testid="stHeader"], footer, [data-testid="stSidebar"], [data-testid="collapsedControl"] {
         display: none !important;
     }
 
-    /* Zapobieganie przewijaniu poziomemu */
     html, body, [data-testid="stAppViewContainer"], .main, .block-container {
         overflow-x: hidden !important;
         max-width: 100vw !important;
     }
 
-    /* Główny kontener aplikacji */
     .block-container {
         padding-top: 0.2rem !important;
         padding-bottom: 1rem !important;
@@ -33,7 +50,6 @@ st.markdown("""
         margin: 0 auto !important;
     }
 
-    /* DESKTOP (DOMYŚLNIE): 2 KOLUMNY OBOK SIEBIE */
     [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
@@ -48,7 +64,6 @@ st.markdown("""
         min-width: 0 !important;
     }
 
-    /* MOBILE (< 600px): UKŁAD JEDEN POD DRUGIM */
     @media (max-width: 600px) {
         [data-testid="stHorizontalBlock"] {
             flex-direction: column !important;
@@ -60,7 +75,6 @@ st.markdown("""
         }
     }
 
-    /* Stylizacja selektorów i etykiet */
     div[data-testid="stWidgetLabel"] p {
         font-size: 0.85rem !important;
         font-weight: 600 !important;
@@ -80,7 +94,6 @@ st.markdown("""
         padding-right: 8px !important;
     }
 
-    /* Nagłówek QuizNuta według załączników */
     .app-header {
         display: flex;
         align-items: center;
@@ -145,7 +158,6 @@ st.markdown("""
         border-radius: 50%;
     }
 
-    /* Kafelki ze statystykami */
     .stats-container {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -232,7 +244,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Inicjalizacja stanu
+# Domyślna inicjalizacja stanu
 if "full_playlist" not in st.session_state:
     st.session_state.full_playlist = []
 if "songs_pool" not in st.session_state:
@@ -251,6 +263,29 @@ if "last_correct" not in st.session_state:
     st.session_state.last_correct = False
 if "audio_id" not in st.session_state:
     st.session_state.audio_id = 0
+if "restored" not in st.session_state:
+    st.session_state.restored = False
+
+# Próba odzyskania stanu z przeglądarki przy pierwszym wejściu
+if not st.session_state.restored:
+    saved_state = st_javascript("localStorage.getItem('quiznuta_state');")
+    if saved_state and isinstance(saved_state, str):
+        try:
+            data = json.loads(saved_state)
+            st.session_state.full_playlist = data.get("full_playlist", [])
+            st.session_state.songs_pool = data.get("songs_pool", [])
+            st.session_state.options_list = data.get("options_list", [])
+            st.session_state.current_song = data.get("current_song", None)
+            st.session_state.score = data.get("score", 0)
+            st.session_state.total = data.get("total", 0)
+            st.session_state.answered = data.get("answered", False)
+            st.session_state.last_correct = data.get("last_correct", False)
+            st.session_state.audio_id = data.get("audio_id", 0)
+            st.session_state.restored = True
+            st.rerun()
+        except Exception:
+            pass
+    st.session_state.restored = True
 
 def load_predefined_playlists():
     if os.path.exists("playlists.json"):
@@ -272,6 +307,7 @@ def extract_playlist_id(url):
             return part
     return url
 
+@st.cache_data(ttl=86400)
 def fetch_deezer_playlist(playlist_id):
     api_url = f"https://api.deezer.com/playlist/{playlist_id}"
     try:
@@ -311,6 +347,7 @@ def prepare_options(songs, raw_mode):
 def draw_next_song():
     if not st.session_state.songs_pool:
         st.session_state.current_song = None
+        save_game_to_local_storage()
         return
     song = random.choice(st.session_state.songs_pool)
     st.session_state.songs_pool.remove(song)
@@ -318,6 +355,7 @@ def draw_next_song():
     st.session_state.answered = False
     st.session_state.last_correct = False
     st.session_state.audio_id += 1
+    save_game_to_local_storage()
 
 # Nagłówek
 st.markdown("""
@@ -442,6 +480,8 @@ if st.session_state.current_song:
             if correct:
                 st.session_state.score += 1
                 st.balloons()
+            
+            save_game_to_local_storage()
             st.rerun()
     else:
         box_class = "correct" if st.session_state.last_correct else "wrong"
@@ -481,4 +521,6 @@ elif st.session_state.total > 0 and not st.session_state.songs_pool:
     st.subheader(f"Ostateczny wynik: {st.session_state.score} / {st.session_state.total}")
     if st.button("Zagraj ponownie"):
         st.session_state.total = 0
+        st.session_state.current_song = None
+        clear_local_storage()
         st.rerun()
