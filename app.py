@@ -63,6 +63,7 @@ st.markdown("""
         text-overflow: ellipsis !important;
     }
 
+    /* --- STYLIZACJA SELECTBOXA I USUWANIE FOCUSU/KURSORA --- */
     div[data-baseweb="select"] {
         border-radius: 12px !important;
         width: 100% !important;
@@ -73,6 +74,20 @@ st.markdown("""
         padding-left: 8px !important;
         padding-right: 8px !important;
     }
+
+    /* Wyłączenie podświetlenia, obramowania i migającego kursora po wyborze */
+    div[data-baseweb="select"] *,
+    div[data-baseweb="select"] input {
+        outline: none !important;
+        box-shadow: none !important;
+        caret-color: transparent !important;
+    }
+
+    div[data-baseweb="select"]:focus-within {
+        border-color: transparent !important;
+        box-shadow: none !important;
+    }
+    /* ---------------------------------------------------- */
 
     .app-header {
         display: flex;
