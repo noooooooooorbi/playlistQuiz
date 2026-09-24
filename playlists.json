@@ -16,6 +16,10 @@
     "id": "8282573142"
   },
   {
+    "name": "Rock Classic",
+    "id": "1306931615"
+  }  
+  {
     "name": "Metal Hits",
     "id": "1388965575"
   },
@@ -30,9 +34,5 @@
   {
     "name": "The Beatles - All",
     "id": "6552208564"
-  },
-  {
-    "name": "Rock Classic",
-    "id": "1306931615"
   }
 ]
