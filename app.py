@@ -268,38 +268,46 @@ def extract_playlist_id(url):
 
 @st.cache_data(ttl=3600)
 def fetch_deezer_playlist(playlist_id):
-    # Używamy bezpośredniego punktu końcowego do ścieżek z limitem 500 na zapytanie
-    api_url = f"https://api.deezer.com/playlist/{playlist_id}/tracks?limit=500"
     songs = []
-    
-    try:
-        while api_url:
+    index = 0
+    limit = 100  # Pobieramy po 100 utworów w jednej paczce
+
+    while True:
+        # Paginacja za pomocą index i limit
+        api_url = f"https://api.deezer.com/playlist/{playlist_id}/tracks?index={index}&limit={limit}"
+        try:
             response = requests.get(api_url, timeout=10)
             if response.status_code != 200:
                 break
-            
+
             data = response.json()
-            if "error" in data:
+            if "error" in data or "data" not in data:
                 break
 
             tracks = data.get("data", [])
+            if not tracks:
+                break
+
             for track in tracks:
                 preview_url = track.get("preview")
-                # Filtrujemy tylko piosenki posiadające prawidłowy link MP3
+                # Sprawdzamy czy utwór posiada aktywną próbkę audio MP3
                 if preview_url and isinstance(preview_url, str) and preview_url.startswith("http"):
                     songs.append({
                         "title": track.get("title", "Unknown"),
                         "artist": track.get("artist", {}).get("name", "Unknown"),
                         "preview_url": preview_url
                     })
-            
-            # Jeśli playlista ma więcej utworów, Deezer zwraca link 'next' do kolejnej strony
-            api_url = data.get("next")
 
-        return songs
-    except Exception:
-        return songs
+            # Jeśli pobrano mniej utworów niż limit, oznacza to koniec playlisty
+            if len(tracks) < limit:
+                break
 
+            index += limit  # Przechodzimy do kolejnej paczki (100, 200, 300, ...)
+        except Exception:
+            break
+
+    return songs
+    
 def prepare_options(songs, raw_mode):
     options = set()
     for s in songs:
