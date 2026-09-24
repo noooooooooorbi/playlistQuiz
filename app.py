@@ -187,6 +187,23 @@ st.markdown("""
         font-size: 14px;
     }
 
+    /* Styl dedykowany dla przycisku ikonki w statystykach */
+    div[data-testid="stColumn"] div.stButton > button.icon-btn {
+        position: absolute !important;
+        top: 10px !important;
+        right: 10px !important;
+        width: 34px !important;
+        height: 34px !important;
+        padding: 0 !important;
+        background: #1a2030 !important;
+        border: 1px solid #2a324b !important;
+        border-radius: 8px !important;
+        box-shadow: none !important;
+        font-size: 14px !important;
+        line-height: 1 !important;
+        cursor: pointer !important;
+    }
+
     .feedback-box {
         background-color: #121622;
         border: 1px solid #1e2436;
@@ -241,6 +258,17 @@ if "current_playlist_id" not in st.session_state:
     st.session_state.current_playlist_id = None
 if "missing_tracks" not in st.session_state:
     st.session_state.missing_tracks = []
+
+# Popup / Dialog dla pominiętych utworów
+@st.dialog("⚠️ Utwory bez próbki audio")
+def show_missing_dialog():
+    if st.session_state.missing_tracks:
+        st.write(f"Poniżej znajduje się lista **{len(st.session_state.missing_tracks)}** utworów, które zostały pominięte w grze ze względu na brak udostępnionej próbki dźwiękowej w Deezer API:")
+        st.markdown("---")
+        for item in st.session_state.missing_tracks:
+            st.markdown(f"❌ {item}")
+    else:
+        st.success("Wszystkie utwory z tej playlisty posiadają próbkę audio! 🎉")
 
 def load_predefined_playlists():
     if os.path.exists("playlists.json"):
@@ -410,8 +438,9 @@ if st.session_state.current_song:
     remaining_count = len(st.session_state.songs_pool) + 1
     accuracy = int((st.session_state.score / st.session_state.total * 100)) if st.session_state.total > 0 else 0
 
-    st.markdown(f"""
-        <div class="stats-container">
+    c_score, c_remain = st.columns(2)
+    with c_score:
+        st.markdown(f"""
             <div class="stat-card">
                 <div>
                     <div class="stat-label">TWÓJ WYNIK</div>
@@ -419,18 +448,27 @@ if st.session_state.current_song:
                 </div>
                 <div class="stat-icon">🏆</div>
             </div>
+        """, unsafe_allow_html=True)
+
+    with c_remain:
+        # Karta z licznikiem i interaktywną ikonką otwierającą popup
+        missing_count = len(st.session_state.missing_tracks)
+        icon_label = "🎵🔴" if missing_count > 0 else "🎵"
+        
+        st.markdown(f"""
             <div class="stat-card">
                 <div>
                     <div class="stat-label">POZOSTAŁO</div>
                     <div class="stat-value">{remaining_count} <span>piosenek</span></div>
                 </div>
-                <div class="stat-icon">🎵</div>
             </div>
-        </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+        
+        # Przycisk wkomponowany w kartę statystyki
+        if st.button(icon_label, key="missing_tracks_btn"):
+            show_missing_dialog()
 
     if song.get("preview_url"):
-        # Odtwarzacz HTML z automatycznym zdjęciem fokusu ze st.selectbox i przeniesieniem go na odtwarzacz
         audio_html = f"""
             <audio id="audio_player_{st.session_state.audio_id}" controls style="width: 100%; height: 45px; border-radius: 12px; outline: none;">
                 <source src="{song['preview_url']}" type="audio/mpeg">
@@ -525,9 +563,3 @@ elif st.session_state.total > 0 and not st.session_state.songs_pool:
         st.session_state.current_song = None
         st.session_state.current_playlist_id = None
         st.rerun()
-
-# --- BLOK DIAGNOSTYCZNY ---
-if st.session_state.missing_tracks:
-    with st.expander(f"⚠️ Zobacz pominięte utwory bez próbki audio ({len(st.session_state.missing_tracks)})"):
-        for item in st.session_state.missing_tracks:
-            st.write(f"❌ {item}")
