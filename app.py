@@ -9,61 +9,26 @@ st.set_page_config(page_title="QuizNuta", page_icon="🎵", layout="centered")
 TEMP_DIR = "temp_audio"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
-# CSS: Wymuszenie idealnego responsive layoutu bez rozpychania ekranu
+# CSS: Twardy reset szerokości i brak wychodzenia poza ekran mobilny
 st.markdown("""
     <style>
-    /* Ukrycie paska nagłówka i marginesów domyślnych */
-    header[data-testid="stHeader"] { display: none !important; }
-    footer { display: none !important; }
-    [data-testid="stSidebar"] { display: none !important; }
-    [data-testid="collapsedControl"] { display: none !important; }
+    /* Reset tła i ukrycie domyślnych nagłówków Streamlit */
+    header[data-testid="stHeader"], footer, [data-testid="stSidebar"], [data-testid="collapsedControl"] {
+        display: none !important;
+    }
 
-    .block-container {
-        padding-top: 1.2rem !important;
-        padding-bottom: 1rem !important;
-        padding-left: 0.8rem !important;
-        padding-right: 0.8rem !important;
-        max-width: 500px !important;
+    /* Blokada rozpychania całej strony na boki */
+    html, body, [data-testid="stAppViewContainer"], .main {
         overflow-x: hidden !important;
+        max-width: 100vw !important;
     }
 
-    /* Wymuszenie dopasowania wewnętrznych elementów Streamlit */
-    div[data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
+    /* Główny kontener aplikacji */
+    .block-container {
+        padding: 1rem 0.5rem !important;
+        max-width: 450px !important;
         width: 100% !important;
-        gap: 6px !important;
-        min-width: 0 !important;
-    }
-
-    div[data-testid="column"] {
-        width: 50% !important;
-        min-width: 0 !important;
-        flex: 1 1 50% !important;
-    }
-
-    div[data-testid="stWidgetLabel"] {
-        min-height: auto !important;
-    }
-
-    div[data-testid="stWidgetLabel"] p {
-        font-size: 0.85rem !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-    }
-
-    /* Redukcja paddingu wewnątrz selectboxów */
-    div[data-baseweb="select"] {
-        border-radius: 12px !important;
-        min-width: 0 !important;
-    }
-
-    div[data-baseweb="select"] > div {
-        padding-left: 6px !important;
-        padding-right: 6px !important;
-        min-width: 0 !important;
+        margin: 0 auto !important;
     }
 
     /* Nagłówek QuizNuta */
@@ -76,49 +41,47 @@ st.markdown("""
     .app-title-container {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 8px;
     }
     .app-logo {
         background: linear-gradient(135deg, #ff007a, #7b2cbf);
-        width: 38px;
-        height: 38px;
+        width: 36px;
+        height: 36px;
         border-radius: 10px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 20px;
+        font-size: 18px;
         box-shadow: 0 4px 12px rgba(255, 0, 122, 0.4);
     }
     .app-title-wrapper {
         display: flex;
         flex-direction: column;
-        align-items: flex-end;
+        align-items: flex-start;
     }
     .app-title {
-        font-size: 1.5rem;
+        font-size: 1.4rem;
         font-weight: 800;
         color: #ffffff;
         margin: 0;
         line-height: 1;
     }
     .app-subtitle {
-        font-size: 0.72rem;
+        font-size: 0.7rem;
         color: #a0a5b5;
-        font-weight: normal;
         margin-top: 2px;
-        line-height: 1;
     }
     .badge-live {
         background-color: rgba(45, 198, 83, 0.15);
         color: #2dc653;
         border: 1px solid rgba(45, 198, 83, 0.4);
-        padding: 3px 10px;
+        padding: 2px 8px;
         border-radius: 20px;
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         font-weight: 600;
         display: flex;
         align-items: center;
-        gap: 5px;
+        gap: 4px;
     }
     .badge-live::before {
         content: '';
@@ -128,104 +91,110 @@ st.markdown("""
         border-radius: 50%;
     }
 
-    /* Kafelki statystyk */
+    /* SZTYWNY UKŁAD 2 KOLUMN DLA SELEKTORÓW (GRID) */
+    [data-testid="stHorizontalBlock"] {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 8px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    [data-testid="column"] {
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    /* Stylizacja etykiet i samych selectboxów */
+    div[data-testid="stWidgetLabel"] p {
+        font-size: 0.8rem !important;
+        font-weight: 600 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+
+    div[data-baseweb="select"] {
+        border-radius: 10px !important;
+        min-width: 0 !important;
+    }
+
+    div[data-baseweb="select"] > div {
+        padding-left: 6px !important;
+        padding-right: 6px !important;
+        font-size: 0.85rem !important;
+    }
+
+    /* Kafelki ze statystykami */
     .stats-container {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 10px;
+        gap: 8px;
         margin-bottom: 12px;
     }
     .stat-card {
         background-color: #121622;
         border: 1px solid #1e2436;
-        border-radius: 14px;
-        padding: 10px 12px;
+        border-radius: 12px;
+        padding: 8px 10px;
         position: relative;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
     }
     .stat-label {
-        font-size: 0.68rem;
+        font-size: 0.65rem;
         color: #7b839b;
         font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
     }
     .stat-value {
-        font-size: 1.25rem;
+        font-size: 1.1rem;
         font-weight: 800;
         color: #ffffff;
-        margin-top: 4px;
+        margin-top: 2px;
     }
     .stat-value span {
-        font-size: 0.8rem;
+        font-size: 0.75rem;
         color: #7b839b;
         font-weight: normal;
     }
     .stat-icon {
         position: absolute;
-        top: 10px;
-        right: 10px;
-        width: 30px;
-        height: 30px;
-        background-color: #1a2030;
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 14px;
+        top: 8px;
+        right: 8px;
+        font-size: 12px;
     }
 
     audio {
         width: 100% !important;
-        height: 45px !important;
-        border-radius: 12px;
+        height: 40px !important;
         margin-top: 4px;
     }
 
     .feedback-box {
         background-color: #121622;
         border: 1px solid #1e2436;
-        border-radius: 14px;
-        padding: 12px 14px;
+        border-radius: 12px;
+        padding: 10px 12px;
         display: flex;
         align-items: center;
-        gap: 14px;
-        margin-top: 10px;
-        margin-bottom: 12px;
+        gap: 10px;
+        margin: 10px 0;
     }
-    .feedback-box.correct {
-        border-color: #2dc653;
-        background-color: rgba(45, 198, 83, 0.08);
-    }
-    .feedback-box.wrong {
-        border-color: #ff3366;
-        background-color: rgba(255, 51, 102, 0.08);
-    }
-    .feedback-icon { font-size: 22px; }
-    .feedback-main {
-        font-size: 1rem;
-        font-weight: 700;
-        color: #ffffff;
-        line-height: 1.2;
-    }
-    .feedback-sub {
-        font-size: 0.82rem;
-        color: #a0a5b5;
-        margin-top: 2px;
-    }
+    .feedback-box.correct { border-color: #2dc653; background-color: rgba(45, 198, 83, 0.08); }
+    .feedback-box.wrong { border-color: #ff3366; background-color: rgba(255, 51, 102, 0.08); }
+    .feedback-icon { font-size: 20px; }
+    .feedback-main { font-size: 0.95rem; font-weight: 700; color: #ffffff; }
+    .feedback-sub { font-size: 0.8rem; color: #a0a5b5; }
 
     .stButton > button {
         width: 100% !important;
         background: linear-gradient(90deg, #ff007a, #7b2cbf) !important;
         color: white !important;
         border: none !important;
-        border-radius: 14px !important;
-        padding: 12px 20px !important;
-        font-size: 1rem !important;
+        border-radius: 12px !important;
+        padding: 10px 16px !important;
+        font-size: 0.95rem !important;
         font-weight: 700 !important;
-        box-shadow: 0 4px 15px rgba(255, 0, 122, 0.3) !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -335,20 +304,19 @@ st.markdown("""
 mode_options = [
     "👤 Wykonawca",
     "🎵 Tytuł",
-    "🔀 Wykonawca i Tytuł"
+    "🔀 Obie opcje"
 ]
 
-# Pobranie playlist
 predefined = load_predefined_playlists()
 playlist_id_to_load = None
 
-# Układ 2 kolumn bez przekraczania szerokości ekranu
+# Blok wyboru - CSS Grid wymusza układ 50%/50% w jednym wierszu
 col1, col2 = st.columns(2)
 
 with col1:
     if predefined:
         options_map = {p["name"]: str(p["id"]) for p in predefined if "name" in p and "id" in p}
-        options_map["-- Inny --"] = "custom"
+        options_map["-- Własna --"] = "custom"
         selected_name = st.selectbox("🎛️ Playlista", options=list(options_map.keys()))
         if options_map[selected_name] != "custom":
             playlist_id_to_load = options_map[selected_name]
@@ -356,8 +324,8 @@ with col1:
 with col2:
     selected_mode_full = st.selectbox("🎯 Tryb", options=mode_options, index=0)
 
-# Określenie wybranego trybu
-if "Wykonawca i Tytuł" in selected_mode_full:
+# Odczyt trybu
+if "Obie opcje" in selected_mode_full:
     clean_mode = "Wykonawca i Tytuł"
 elif "Tytuł" in selected_mode_full:
     clean_mode = "Tytuł"
@@ -374,9 +342,9 @@ if st.session_state.full_playlist:
 
 # Przycisk startu
 if not st.session_state.current_song and st.session_state.total == 0:
-    if st.button("Pobierz playlistę i rozpocznij grę"):
+    if st.button("Pobierz i rozpocznij"):
         if playlist_id_to_load:
-            with st.spinner("Ładowanie..."):
+            with st.spinner("Pobieranie..."):
                 fetched_songs = fetch_deezer_playlist(playlist_id_to_load)
                 if fetched_songs:
                     st.session_state.full_playlist = fetched_songs.copy()
@@ -392,7 +360,7 @@ if not st.session_state.current_song and st.session_state.total == 0:
         else:
             st.warning("Wybierz playlistę.")
 
-# Widok gry
+# Gra
 if st.session_state.current_song:
     song = st.session_state.current_song
     remaining_count = len(st.session_state.songs_pool) + 1
@@ -401,17 +369,13 @@ if st.session_state.current_song:
     st.markdown(f"""
         <div class="stats-container">
             <div class="stat-card">
-                <div>
-                    <div class="stat-label">TWÓJ WYNIK</div>
-                    <div class="stat-value">{st.session_state.score} / {st.session_state.total} <span>({accuracy}%)</span></div>
-                </div>
+                <div class="stat-label">WYNIK</div>
+                <div class="stat-value">{st.session_state.score} / {st.session_state.total} <span>({accuracy}%)</span></div>
                 <div class="stat-icon">🏆</div>
             </div>
             <div class="stat-card">
-                <div>
-                    <div class="stat-label">POZOSTAŁO</div>
-                    <div class="stat-value">{remaining_count} <span>piosenek</span></div>
-                </div>
+                <div class="stat-label">POZOSTAŁO</div>
+                <div class="stat-value">{remaining_count} <span>utworów</span></div>
                 <div class="stat-icon">🎵</div>
             </div>
         </div>
@@ -463,7 +427,7 @@ if st.session_state.current_song:
         st.markdown(f"""
             <div class="feedback-box {box_class}">
                 <div class="feedback-icon">{icon}</div>
-                <div class="feedback-text">
+                <div>
                     <div class="feedback-main">{main_text}</div>
                     {sub_html}
                 </div>
