@@ -9,7 +9,7 @@ st.set_page_config(page_title="QuizNuta", page_icon="🎵", layout="centered")
 TEMP_DIR = "temp_audio"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
-# CSS z precyzyjnymi wartościami marginesów
+# CSS z regułami blokującymi focus i kursor w selectboxach
 st.markdown("""
     <style>
     header[data-testid="stHeader"], footer, [data-testid="sidebar"], [data-testid="collapsedControl"] {
@@ -63,7 +63,7 @@ st.markdown("""
         text-overflow: ellipsis !important;
     }
 
-    /* --- STYLIZACJA SELECTBOXA I USUWANIE FOCUSU/KURSORA --- */
+    /* --- STYLIZACJA SELECTBOXA I USUWANIE FOCUSU/KURSORA (SPOSÓB 2) --- */
     div[data-baseweb="select"] {
         border-radius: 12px !important;
         width: 100% !important;
@@ -75,12 +75,18 @@ st.markdown("""
         padding-right: 8px !important;
     }
 
-    /* Wyłączenie podświetlenia, obramowania i migającego kursora po wyborze */
+    /* Wyłączenie migającego kursora i zdarzeń pisania w polu tekstowym wewnątrz Selectboxa */
+    div[data-baseweb="select"] input {
+        caret-color: transparent !important;
+        pointer-events: none !important;
+        user-select: none !important;
+    }
+
+    /* Wyłączenie niechcianych obramowań i cieni po kliknięciu/wyborze */
     div[data-baseweb="select"] *,
     div[data-baseweb="select"] input {
         outline: none !important;
         box-shadow: none !important;
-        caret-color: transparent !important;
     }
 
     div[data-baseweb="select"]:focus-within {
@@ -527,7 +533,6 @@ elif st.session_state.total > 0 and not st.session_state.songs_pool:
         st.rerun()
 
 # --- BLOK DIAGNOSTYCZNY ---
-# Wyświetla utwory odrzucone z powodu braku próbki MP3
 if st.session_state.missing_tracks:
     with st.expander(f"⚠️ Zobacz pominięte utwory bez próbki audio ({len(st.session_state.missing_tracks)})"):
         for item in st.session_state.missing_tracks:
