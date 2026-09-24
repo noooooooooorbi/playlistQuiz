@@ -10,7 +10,7 @@ st.set_page_config(page_title="QuizNuta", page_icon="🎵", layout="centered")
 TEMP_DIR = "temp_audio"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
-# CSS: Nowoczesny interfejs QuizNuta z dopasowanymi listami rozwijanymi
+# CSS: Nowoczesny interfejs QuizNuta z dopasowanym nagłówkiem
 st.markdown("""
     <style>
     /* Ukrywamy domyślne paski i sidebar Streamlita */
@@ -51,15 +51,20 @@ st.markdown("""
         font-size: 20px;
         box-shadow: 0 4px 12px rgba(255, 0, 122, 0.4);
     }
+    .app-title-wrapper {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+    }
     .app-title {
-        font-size: 1.4rem;
+        font-size: 1.5rem;
         font-weight: 800;
         color: #ffffff;
         margin: 0;
-        line-height: 1.1;
+        line-height: 1;
     }
     .app-subtitle {
-        font-size: 0.8rem;
+        font-size: 0.78rem;
         color: #a0a5b5;
         font-weight: normal;
     }
@@ -288,14 +293,14 @@ def draw_next_song():
     st.session_state.last_correct = False
     st.session_state.audio_id += 1
 
-# Nagłówek aplikacji (QuizNuta)
+# Nagłówek aplikacji (QuizNuta by Norbbs)
 st.markdown("""
     <div class="app-header">
         <div class="app-title-container">
             <div class="app-logo">🎵</div>
-            <div>
+            <div class="app-title-wrapper">
                 <h1 class="app-title">QuizNuta</h1>
-                <div class="app-subtitle">by Norbbs</div>
+                <span class="app-subtitle">by Norbbs</span>
             </div>
         </div>
         <div class="badge-live">Live</div>
