@@ -266,32 +266,39 @@ def extract_playlist_id(url):
             return part
     return url
 
-@st.cache_data(ttl=3600)  # Zmniejszono cache do 1h (aby szybciej reagować na poprawki)
+@st.cache_data(ttl=3600)
 def fetch_deezer_playlist(playlist_id):
-    api_url = f"https://api.deezer.com/playlist/{playlist_id}"
+    # Używamy bezpośredniego punktu końcowego do ścieżek z limitem 500 na zapytanie
+    api_url = f"https://api.deezer.com/playlist/{playlist_id}/tracks?limit=500"
+    songs = []
+    
     try:
-        response = requests.get(api_url, timeout=10)
-        if response.status_code != 200:
-            return []
-        data = response.json()
-        if "error" in data:
-            return []
+        while api_url:
+            response = requests.get(api_url, timeout=10)
+            if response.status_code != 200:
+                break
+            
+            data = response.json()
+            if "error" in data:
+                break
 
-        tracks = data.get("tracks", {}).get("data", [])
-        songs = []
+            tracks = data.get("data", [])
+            for track in tracks:
+                preview_url = track.get("preview")
+                # Filtrujemy tylko piosenki posiadające prawidłowy link MP3
+                if preview_url and isinstance(preview_url, str) and preview_url.startswith("http"):
+                    songs.append({
+                        "title": track.get("title", "Unknown"),
+                        "artist": track.get("artist", {}).get("name", "Unknown"),
+                        "preview_url": preview_url
+                    })
+            
+            # Jeśli playlista ma więcej utworów, Deezer zwraca link 'next' do kolejnej strony
+            api_url = data.get("next")
 
-        for track in tracks:
-            preview_url = track.get("preview")
-            # Dodatkowy warunek: dodajemy piosenkę TYLKO wtedy, gdy ma prawidłowy link MP3
-            if preview_url and isinstance(preview_url, str) and preview_url.startswith("http") and len(preview_url) > 10:
-                songs.append({
-                    "title": track.get("title", "Unknown"),
-                    "artist": track.get("artist", {}).get("name", "Unknown"),
-                    "preview_url": preview_url
-                })
         return songs
     except Exception:
-        return []
+        return songs
 
 def prepare_options(songs, raw_mode):
     options = set()
