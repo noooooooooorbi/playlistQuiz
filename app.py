@@ -298,7 +298,7 @@ def draw_next_song():
     st.session_state.last_correct = False
     st.session_state.audio_id += 1
 
-# Nagłówek aplikacji (QuizNuta z "by Norbbs" wyrównanym pod końcem słowa)
+# Nagłówek aplikacji
 st.markdown("""
     <div class="app-header">
         <div class="app-title-container">
@@ -388,8 +388,8 @@ if st.session_state.current_song:
     # Odtwarzacz audio
     st.audio(song["preview_url"])
 
-    # Odpowiedź
-    default_option = "-- Wybierz odpowiedź --"
+    # Odpowiedź - Domyślna opcja "Nie mam pojęcia :-)"
+    default_option = "Nie mam pojęcia :-)"
     selectable_options = [default_option] + st.session_state.options_list
     
     user_choice = st.selectbox(
@@ -401,11 +401,12 @@ if st.session_state.current_song:
     # Przycisk "Sprawdź" lub "Następne pytanie"
     if not st.session_state.answered:
         if st.button("Sprawdź odpowiedź 🎯"):
+            st.session_state.total += 1
+            st.session_state.answered = True
+            
+            correct = False
+            # Jeśli wybrano domyślnie "Nie mam pojęcia :-)", od razu traktujemy odpowiedź jako niepoprawną
             if user_choice != default_option:
-                st.session_state.total += 1
-                st.session_state.answered = True
-                
-                correct = False
                 if mode == "Tytuł" and user_choice == song["title"]:
                     correct = True
                 elif mode == "Wykonawca" and user_choice == song["artist"]:
@@ -413,15 +414,14 @@ if st.session_state.current_song:
                 elif mode == "Wykonawca i Tytuł" and user_choice == f'{song["artist"]} - {song["title"]}':
                     correct = True
 
-                if correct:
-                    st.session_state.score += 1
-                    st.session_state.last_correct = True
-                    st.balloons()
-                else:
-                    st.session_state.last_correct = False
-                st.rerun()
+            if correct:
+                st.session_state.score += 1
+                st.session_state.last_correct = True
+                st.balloons()
             else:
-                st.warning("Proszę wybrać odpowiedź z listy!")
+                st.session_state.last_correct = False
+            
+            st.rerun()
     else:
         # Pokaż wynik / odpowiedź
         box_class = "correct" if st.session_state.last_correct else "wrong"
