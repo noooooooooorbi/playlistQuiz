@@ -499,3 +499,7 @@ elif st.session_state.total > 0 and not st.session_state.songs_pool:
         st.session_state.current_song = None
         st.session_state.current_playlist_id = None
         st.rerun()
+
+
+st.write("DEBUG - Pobrano z Deezera piosenek:", len(fetch_deezer_playlist_v3(playlist_id_to_load)) if playlist_id_to_load else 0)
+st.write("DEBUG - Liczba w session_state:", len(st.session_state.full_playlist))
