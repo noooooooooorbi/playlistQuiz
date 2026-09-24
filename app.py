@@ -4,80 +4,198 @@ import random
 import requests
 import streamlit as st
 
-st.set_page_config(page_title="Deezer Music Quiz by Norbbs", page_icon="🎵")
+st.set_page_config(page_title="QuizNuta", page_icon="🎵", layout="centered")
 
-# CSS: Usuwa ukryty pasek Streamlita i daje bezpieczny margines od góry
+# Katalog na pliki tymczasowe
+TEMP_DIR = "temp_audio"
+os.makedirs(TEMP_DIR, exist_ok=True)
+
+# CSS: Nowoczesny interfejs QuizNuta inspirowany mockupem
 st.markdown("""
     <style>
-    /* Ukrywamy górny pasek nawigacyjny Streamlita, który zasłaniał tytuł */
-    header[data-testid="stHeader"] {
-        display: none !important;
-    }
-    
-    /* Bezpieczny margines górny i brak niepotrzebnego przewijania */
+    /* Ukrywamy domyślne paski Streamlita */
+    header[data-testid="stHeader"] { display: none !important; }
+    footer { display: none !important; }
+
+    /* Główny kontener aplikacji */
     .block-container {
-        padding-top: 2.5rem !important;
+        padding-top: 1.2rem !important;
         padding-bottom: 1rem !important;
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;
-    }
-    
-    /* Poprawka tytułu – marginesy i wysokie linie */
-    h1 {
-        font-size: 1.6rem !important;
-        line-height: 1.3 !important;
-        margin-top: 0px !important;
-        padding-top: 0px !important;
-        padding-bottom: 0px !important;
-    }
-    
-    /* Podnagłówki */
-    h2, h3, .stSubheader {
-        font-size: 1.1rem !important;
-        padding-top: 0.2rem !important;
-        padding-bottom: 0.1rem !important;
+        padding-left: 0.8rem !important;
+        padding-right: 0.8rem !important;
+        max-width: 500px !important;
     }
 
-    /* Odtwarzacz audio */
+    /* Nagłówek aplikacji */
+    .app-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+    }
+    .app-title-container {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .app-logo {
+        background: linear-gradient(135deg, #ff007a, #7b2cbf);
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        box-shadow: 0 4px 12px rgba(255, 0, 122, 0.4);
+    }
+    .app-title {
+        font-size: 1.4rem;
+        font-weight: 800;
+        color: #ffffff;
+        margin: 0;
+        line-height: 1.1;
+    }
+    .app-subtitle {
+        font-size: 0.8rem;
+        color: #a0a5b5;
+        font-weight: normal;
+    }
+    .badge-live {
+        background-color: rgba(45, 198, 83, 0.15);
+        color: #2dc653;
+        border: 1px solid rgba(45, 198, 83, 0.4);
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .badge-live::before {
+        content: '';
+        width: 6px;
+        height: 6px;
+        background-color: #2dc653;
+        border-radius: 50%;
+    }
+
+    /* Kafelki ze statystykami */
+    .stats-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+    .stat-card {
+        background-color: #121622;
+        border: 1px solid #1e2436;
+        border-radius: 14px;
+        padding: 10px 12px;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+    .stat-label {
+        font-size: 0.68rem;
+        color: #7b839b;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .stat-value {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: #ffffff;
+        margin-top: 4px;
+    }
+    .stat-value span {
+        font-size: 0.8rem;
+        color: #7b839b;
+        font-weight: normal;
+    }
+    .stat-icon {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        width: 30px;
+        height: 30px;
+        background-color: #1a2030;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+    }
+
+    /* Sekcja audio */
     audio {
         width: 100% !important;
         height: 45px !important;
+        border-radius: 12px;
+        margin-top: 4px;
     }
 
-    /* Baner z wynikiem */
-    .score-box {
-        padding: 8px 12px !important;
-        border-radius: 8px;
-        text-align: center;
-        font-size: 16px !important;
-        font-weight: bold;
-        margin-bottom: 10px !important;
-        transition: all 0.5s ease;
+    /* Baner z podpowiedzią/wynikiem */
+    .feedback-box {
+        background-color: #121622;
+        border: 1px solid #1e2436;
+        border-radius: 14px;
+        padding: 12px 14px;
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        margin-top: 10px;
+        margin-bottom: 12px;
     }
-    .score-normal {
-        background-color: #1e2129;
+    .feedback-box.correct {
+        border-color: #2dc653;
+        background-color: rgba(45, 198, 83, 0.08);
+    }
+    .feedback-box.wrong {
+        border-color: #ff3366;
+        background-color: rgba(255, 51, 102, 0.08);
+    }
+    .feedback-icon {
+        font-size: 18px;
+        margin-top: 1px;
+    }
+    .feedback-text {
+        font-size: 0.85rem;
+        color: #a0a5b5;
+    }
+    .feedback-title {
+        font-weight: 700;
         color: #ffffff;
-        border: 1px solid #3e4451;
+        margin-bottom: 2px;
     }
-    .score-success {
-        background-color: #1b4332;
-        color: #2dc653;
-        border: 2px solid #2dc653;
-        box-shadow: 0 0 10px rgba(45, 198, 83, 0.4);
+
+    /* Stylizacja przycisku głównego */
+    .stButton > button {
+        width: 100% !important;
+        background: linear-gradient(90deg, #ff007a, #7b2cbf) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 14px !important;
+        padding: 12px 20px !important;
+        font-size: 1rem !important;
+        font-weight: 700 !important;
+        box-shadow: 0 4px 15px rgba(255, 0, 122, 0.3) !important;
+        transition: all 0.2s ease !important;
     }
-    
-    /* Linedivider */
-    hr {
-        margin-top: 0.5rem !important;
-        margin-bottom: 0.5rem !important;
+    .stButton > button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px rgba(255, 0, 122, 0.5) !important;
+    }
+
+    /* Stylowanie poleceń wyboru */
+    div[data-baseweb="select"] {
+        border-radius: 12px !important;
     }
     </style>
 """, unsafe_allow_html=True)
-
-st.title("🎵 Deezer Music Quiz by Norbbs")
-
-st.sidebar.header("⚙️ Ustawienia Quizu")
-mode = st.sidebar.radio("Co chcesz odgadywać?", ["Tytuł", "Wykonawca", "Wykonawca i Tytuł"], index=1)
 
 # Inicjalizacja stanu aplikacji
 if "songs_pool" not in st.session_state:
@@ -96,6 +214,10 @@ if "last_correct" not in st.session_state:
     st.session_state.last_correct = False
 if "audio_id" not in st.session_state:
     st.session_state.audio_id = 0
+
+# Pasek boczny z ustawieniami
+st.sidebar.header("⚙️ Ustawienia Quizu")
+mode = st.sidebar.radio("Co chcesz odgadywać?", ["Tytuł", "Wykonawca", "Wykonawca i Tytuł"], index=1)
 
 def load_predefined_playlists():
     if os.path.exists("playlists.json"):
@@ -168,60 +290,88 @@ def draw_next_song():
     st.session_state.last_correct = False
     st.session_state.audio_id += 1
 
-# Wczytanie gotowych playlist z pliku JSON
+# Nagłówek aplikacji (QuizNuta)
+st.markdown("""
+    <div class="app-header">
+        <div class="app-title-container">
+            <div class="app-logo">🎵</div>
+            <div>
+                <h1 class="app-title">QuizNuta</h1>
+                <div class="app-subtitle">by Norbbs</div>
+            </div>
+        </div>
+        <div class="badge-live">Live</div>
+    </div>
+""", unsafe_allow_html=True)
+
+# Wybór playlisty
 predefined = load_predefined_playlists()
 playlist_id_to_load = None
-
-st.subheader("Wybierz playlistę")
 
 if predefined:
     options_map = {p["name"]: str(p["id"]) for p in predefined if "name" in p and "id" in p}
     options_map["-- Wklej własny link / ID --"] = "custom"
     
-    selected_name = st.selectbox("Wybierz gotową playlistę z listy:", options=list(options_map.keys()))
+    selected_name = st.selectbox("🎛️ Playlista:", options=list(options_map.keys()))
     
     if options_map[selected_name] != "custom":
         playlist_id_to_load = options_map[selected_name]
 
 if not playlist_id_to_load:
-    custom_input = st.text_input("Wklej link do playlisty Deezer (lub jej ID):", placeholder="https://www.deezer.com/pl/playlist/908622995")
+    custom_input = st.text_input("Wklej link do playlisty Deezer:", placeholder="https://www.deezer.com/pl/playlist/908622995")
     if custom_input:
         playlist_id_to_load = extract_playlist_id(custom_input)
 
-if st.button("Pobierz playlistę i rozpocznij grę"):
-    if playlist_id_to_load:
-        with st.spinner("Pobieranie playlisty z Deezer..."):
-            fetched_songs = fetch_deezer_playlist(playlist_id_to_load)
-            if fetched_songs:
-                st.session_state.songs_pool = fetched_songs.copy()
-                st.session_state.options_list = prepare_options(fetched_songs, mode)
-                st.session_state.score = 0
-                st.session_state.total = 0
-                st.session_state.audio_id = 0
-                draw_next_song()
-                st.success(f"Załadowano {len(fetched_songs)} piosenek!")
-                st.rerun()
-            else:
-                st.error("Nie udało się pobrać playlisty. Upewnij się, że ID/link jest poprawny.")
-    else:
-        st.warning("Wybierz playlistę z listy lub wklej własny link.")
+# Przycisk startowy (jeśli gra nie trwa)
+if not st.session_state.current_song and st.session_state.total == 0:
+    if st.button("Pobierz playlistę i rozpocznij grę"):
+        if playlist_id_to_load:
+            with st.spinner("Ładowanie piosenek..."):
+                fetched_songs = fetch_deezer_playlist(playlist_id_to_load)
+                if fetched_songs:
+                    st.session_state.songs_pool = fetched_songs.copy()
+                    st.session_state.options_list = prepare_options(fetched_songs, mode)
+                    st.session_state.score = 0
+                    st.session_state.total = 0
+                    st.session_state.audio_id = 0
+                    draw_next_song()
+                    st.rerun()
+                else:
+                    st.error("Błąd podczas pobierania playlisty.")
+        else:
+            st.warning("Wybierz playlistę z listy.")
 
-# Panel rozgrywki
+# Panel Gry
 if st.session_state.current_song:
     song = st.session_state.current_song
-    st.divider()
-    
-    score_class = "score-success" if st.session_state.last_correct else "score-normal"
+    remaining_count = len(st.session_state.songs_pool) + 1
+    accuracy = int((st.session_state.score / st.session_state.total * 100)) if st.session_state.total > 0 else 0
+
+    # Kafelki statystyk (Wynik i Pozostało)
     st.markdown(f"""
-        <div class="score-box {score_class}">
-            Wynik: {st.session_state.score} / {st.session_state.total} &nbsp;|&nbsp; Pozostało piosenek: {len(st.session_state.songs_pool) + 1}
+        <div class="stats-container">
+            <div class="stat-card">
+                <div>
+                    <div class="stat-label">TWÓJ WYNIK</div>
+                    <div class="stat-value">{st.session_state.score} / {st.session_state.total} <span>({accuracy}%)</span></div>
+                </div>
+                <div class="stat-icon">🏆</div>
+            </div>
+            <div class="stat-card">
+                <div>
+                    <div class="stat-label">POZOSTAŁO</div>
+                    <div class="stat-value">{remaining_count} <span>piosenek</span></div>
+                </div>
+                <div class="stat-icon">🎵</div>
+            </div>
         </div>
     """, unsafe_allow_html=True)
-    
-    # Tylko dwa podstawowe parametry bez 'format', co zapobiega TypeError
+
+    # Odtwarzacz audio
     st.audio(song["preview_url"])
-    
-    default_option = "Nie mam pojęcia! :-)"
+
+    # Odpowiedź
+    default_option = "-- Wybierz odpowiedź --"
     selectable_options = [default_option] + st.session_state.options_list
     
     user_choice = st.selectbox(
@@ -230,16 +380,13 @@ if st.session_state.current_song:
         key=f"q_select_{st.session_state.audio_id}"
     )
 
+    # Przycisk "Sprawdź" lub "Następne pytanie"
     if not st.session_state.answered:
-        if st.button("Sprawdź"):
-            st.session_state.total += 1
-            st.session_state.answered = True
-            
-            if user_choice == default_option:
-                st.session_state.last_correct = False
-                st.session_state.feedback_type = "info"
-                st.session_state.feedback_msg = f"💡 Poprawna odpowiedź to: **{song['artist']} - {song['title']}**"
-            else:
+        if st.button("Sprawdź odpowiedź 🎯"):
+            if user_choice != default_option:
+                st.session_state.total += 1
+                st.session_state.answered = True
+                
                 correct = False
                 if mode == "Tytuł" and user_choice == song["title"]:
                     correct = True
@@ -251,32 +398,40 @@ if st.session_state.current_song:
                 if correct:
                     st.session_state.score += 1
                     st.session_state.last_correct = True
-                    st.session_state.feedback_type = "success"
-                    st.session_state.feedback_msg = f"🎯 Poprawna odpowiedź! (**{song['artist']} - {song['title']}**)"
                     st.balloons()
                 else:
                     st.session_state.last_correct = False
-                    st.session_state.feedback_type = "error"
-                    st.session_state.feedback_msg = f"❌ Błąd! Poprawna odpowiedź to: **{song['artist']} - {song['title']}**"
-            st.rerun()
+                st.rerun()
+            else:
+                st.warning("Proszę wybrać odpowiedź z listy!")
+    else:
+        # Pokaż wynik / odpowiedź
+        box_class = "correct" if st.session_state.last_correct else "wrong"
+        icon = "🎯" if st.session_state.last_correct else "💡"
+        title = "Poprawna odpowiedź!" if st.session_state.last_correct else "Poprawna odpowiedź to:"
 
-    if st.session_state.answered:
-        msg = getattr(st.session_state, "feedback_msg", "")
-        fb_type = getattr(st.session_state, "feedback_type", "info")
-        
-        if fb_type == "success":
-            st.success(msg)
-        elif fb_type == "error":
-            st.error(msg)
-        else:
-            st.info(msg)
-            
-        if st.button("Następne pytanie ➡️"):
+        st.markdown(f"""
+            <div class="feedback-box {box_class}">
+                <div class="feedback-icon">{icon}</div>
+                <div>
+                    <div class="feedback-title">{title}</div>
+                    <div class="feedback-text"><strong>{song['artist']} - {song['title']}</strong></div>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        if st.button("Następne pytanie ➔"):
             draw_next_song()
             st.rerun()
 
 elif st.session_state.total > 0 and not st.session_state.songs_pool:
-    st.divider()
     st.balloons()
-    st.header("🎉 Koniec Quizu!")
-    st.subheader(f"Twój ostateczny wynik to: {st.session_state.score} / {st.session_state.total}")
+    st.markdown("""
+        <div class="feedback-box correct" style="text-align: center; display: block;">
+            <h2>🎉 Koniec Quizu!</h2>
+        </div>
+    """, unsafe_allow_html=True)
+    st.subheader(f"Ostateczny wynik: {st.session_state.score} / {st.session_state.total}")
+    if st.button("Zagraj ponownie"):
+        st.session_state.total = 0
+        st.rerun()
